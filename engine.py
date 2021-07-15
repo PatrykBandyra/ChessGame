@@ -44,13 +44,13 @@ class GameState:
 
     def get_valid_moves(self):
         """
-        All moves considering checks
+        All moves considering checks.
         """
         return self.get_all_possible_moves()
 
     def get_all_possible_moves(self):
         """
-        All moves without considering checks
+        All moves without considering checks.
         """
         moves = []
         for row in range(len(self.board)):
@@ -63,7 +63,7 @@ class GameState:
 
     def get_pawn_moves(self, row, column, moves):
         """
-        Gets all the pawn moves for the pawn at given location and adds these moves to the list
+        Gets all the pawn moves for the pawn at given location and adds these moves to the list.
         """
         if self.white_to_move:
             if row - 1 >= 0:
@@ -92,37 +92,68 @@ class GameState:
 
     def get_rook_moves(self, row, column, moves):
         """
-        Gets all the rook moves for the pawn at given location and adds these moves to the list
+        Gets all the rook moves for the rook at given location and adds these moves to the list.
         """
         directions = ((-1, 0), (0, -1), (1, 0), (0, 1))  # Up, left, down, right
-        enemy_color = 'b' if self.white_to_move else 'w'
-        for direction in directions:
-            for i in range(1, len(self.board)):
-                end_row = row + direction[0] * i
-                end_col = column + direction[1] * i
-                if 0 <= end_row <= len(self.board)-1 and 0 <= end_col <= len(self.board[row])-1:    # On board
-                    end_piece = self.board[end_row][end_col]
-                    if end_piece == '--':   # Empty space - valid
-                        moves.append(Move((row, column), (end_row, end_col), self.board))
-                    elif end_piece[0] == enemy_color:   # Enemy piece - valid
-                        moves.append(Move((row, column), (end_row, end_col), self.board))
-                        break   # Cannot jump over the enemy piece - no need to check further
-                    else:   # Friendly piece - invalid
-                        break
-                else:   # Off board
-                    break
-
-    def get_knight_moves(self, row, column, moves):
-        pass
+        self.get_long_distance_move(row, column, directions, moves, len(self.board)-1)
 
     def get_bishop_moves(self, row, column, moves):
-        pass
+        """
+        Gets all the bishop moves for the bishop at given location and adds these moves to the list.
+        """
+        directions = ((-1, -1), (1, 1), (1, -1), (-1, 1))
+        self.get_long_distance_move(row, column, directions, moves, len(self.board)-1)
+
+    def get_long_distance_move(self, row, column, directions, moves, longest_move):
+        """
+        Gets all the moves for a specific figure in a given location. Figure can move in different directions for a
+        given maximum number of tiles.
+        """
+        enemy_color = 'b' if self.white_to_move else 'w'
+        for direction in directions:
+            for i in range(1, longest_move+1):
+                end_row = row + direction[0] * i
+                end_col = column + direction[1] * i
+                if 0 <= end_row <= len(self.board) - 1 and 0 <= end_col <= len(self.board[row]) - 1:  # On board
+                    end_piece = self.board[end_row][end_col]
+                    if end_piece == '--':  # Empty space - valid
+                        moves.append(Move((row, column), (end_row, end_col), self.board))
+                    elif end_piece[0] == enemy_color:  # Enemy piece - valid
+                        moves.append(Move((row, column), (end_row, end_col), self.board))
+                        break  # Cannot jump over the enemy piece - no need to check further
+                    else:  # Friendly piece - invalid
+                        break
+                else:  # Off board
+                    break
 
     def get_queen_moves(self, row, column, moves):
-        pass
+        """
+         Gets all the queen moves for the queen at given location and adds these moves to the list.
+         Queen's moves are combination of moves of rook and bishop.
+        """
+        self.get_rook_moves(row, column, moves)
+        self.get_bishop_moves(row, column, moves)
 
     def get_king_moves(self, row, column, moves):
-        pass
+        """
+        Gets all the king moves for the king at given location and adds these moves to the list.
+        """
+        directions = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1))
+        self.get_long_distance_move(row, column, directions, moves, 1)
+
+    def get_knight_moves(self, row, column, moves):
+        """
+        Gets all the knight moves for the knight at given location and adds these moves to the list.
+        """
+        knight_moves = ((-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1))
+        ally_color = 'w' if self.white_to_move else 'b'
+        for move in knight_moves:
+            end_row = row + move[0]
+            end_col = column + move[1]
+            if 0 <= end_row < len(self.board) and 0 <= end_col < len(self.board[row]):
+                end_piece = self.board[end_row][end_col]
+                if end_piece[0] != ally_color:  # empty or enemy piece
+                    moves.append(Move((row, column), (end_row, end_col), self.board))
 
 
 class Move:

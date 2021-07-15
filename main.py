@@ -141,8 +141,8 @@ class Game:
 
                         if len(player_clicks) == 2:  # After 2nd click
                             move = Move(player_clicks[0], player_clicks[1], self.game_state.board)
-                            print(move.get_chess_notation())
                             if move in valid_moves:
+                                print(move.get_chess_notation())
                                 self.game_state.make_move(move)
                                 move_made = True
                             sq_selected = ()
