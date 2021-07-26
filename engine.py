@@ -32,6 +32,9 @@ class GameState:
         self.pins = []
         self.checks = []
 
+        # En passant
+        self.enpassant_possible = ()
+
     def get_king_location(self, color):
         if color == 'b' or color == 'w':
             for i, row in enumerate(self.board):
@@ -55,6 +58,25 @@ class GameState:
             if move.piece_moved == 'bK':
                 self.black_king_location = (move.end_row, move.end_col)
 
+            # If pawn moves twice, next move can capture en passant
+            if move.piece_moved[1] == 'P' and abs(move.start_row-move.end_row) == 2:
+                self.enpassant_possible = ((move.end_row+move.start_row)//2, move.end_col)
+            else:
+                self.enpassant_possible = ()
+
+            # If en passant move, must update the board to capture the pawn
+            if move.enpassant:
+                self.board[move.start_row][move.end_col] = '--'
+
+            # Pawn promotion
+            if move.pawn_promotion:
+                promoted_piece = None
+                while promoted_piece not in ['Q', 'R', 'B', 'N']:
+                    promoted_piece = input('Promote to Q, R, B or N: ')  # TODO: make promotion choice a part of an UI
+                self.board[move.end_row][move.end_col] = move.piece_moved[0] + promoted_piece
+
+            # Update castling rights
+
     def undo_move(self):
         if len(self.move_log) != 0:
             move = self.move_log.pop()
@@ -67,6 +89,17 @@ class GameState:
                 self.white_king_location = (move.start_row, move.start_col)
             if move.piece_moved == 'bK':
                 self.black_king_location = (move.start_row, move.start_col)
+
+            # Undoing en passant
+            if move.enpassant:
+                self.board[move.end_row][move.end_col] = '--'  # Remove the pawn that was added in the wrong square
+                self.board[move.start_row][move.end_col] = move.piece_captured  # Put back the captured pawn
+                self.enpassant_possible = (move.end_row, move.end_col)  # Allow en passant to happen on the next move
+
+            # Undoing a 2 square pawn advance resets en passant possibility
+            if move.piece_moved[1] == 'P' and abs(move.start_row-move.end_row) == 2:
+                self.enpassant_possible = ()
+
 
     def get_valid_moves(self):
         """
@@ -364,13 +397,20 @@ class Move:
     files_to_cols = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
     cols_to_files = {v: k for k, v in files_to_cols.items()}
 
-    def __init__(self, start_sq, end_sq, board):
+    def __init__(self, start_sq, end_sq, board, enpassant=False, pawn_promotion=False):
         self.start_row = start_sq[0]
         self.start_col = start_sq[1]
         self.end_row = end_sq[0]
         self.end_col = end_sq[1]
         self.piece_moved = board[self.start_row][self.start_col]
         self.piece_captured = board[self.end_row][self.end_col]
+
+        # En passant
+        self.enpassant = enpassant
+        if enpassant:
+            self.piece_captured = 'bP' if self.piece_moved == 'wP' else 'wP'  # En passant captures opposite colored pawn
+
+
         self.move_id = self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col
 
     def __eq__(self, other):
