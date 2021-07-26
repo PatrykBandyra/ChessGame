@@ -100,7 +100,6 @@ class GameState:
             if move.piece_moved[1] == 'P' and abs(move.start_row-move.end_row) == 2:
                 self.enpassant_possible = ()
 
-
     def get_valid_moves(self):
         """
         All moves with considering checks.
@@ -258,35 +257,43 @@ class GameState:
                 break
 
         if self.white_to_move:
-            if row - 1 >= 0:
-                if self.board[row - 1][column] == '--':  # 1 square advance
-                    if not piece_pinned or pin_direction == (-1, 0):
-                        moves.append(Move((row, column), (row - 1, column), self.board))
-                        if row == len(self.board) - 2 and self.board[row - 2][column]:  # 2 squares advance
-                            moves.append(Move((row, column), (row - 2, column), self.board))
-                if column - 1 >= 0:  # Captures to the left
-                    if self.board[row - 1][column - 1][0] == 'b':  # Enemy piece to capture
-                        if not piece_pinned or pin_direction == (-1, -1):
-                            moves.append(Move((row, column), (row - 1, column - 1), self.board))
-                if column + 1 <= len(self.board[row]) - 1:  # Captures to the right
-                    if self.board[row - 1][column + 1][0] == 'b':  # Enemy piece to capture
-                        if not piece_pinned or pin_direction == (-1, 1):
-                            moves.append(Move((row, column), (row - 1, column + 1), self.board))
+            move_amount = -1
+            start_row = len(self.board)-2
+            back_row = 0
+            enemy_color = 'b'
         else:
-            if row + 1 <= len(self.board) - 1:
-                if self.board[row + 1][column] == '--':  # 1 square advance
-                    if not piece_pinned or pin_direction == (1, 0):
-                        moves.append(Move((row, column), (row + 1, column), self.board))
-                        if row == 1 and self.board[row + 2][column]:  # 2 squares advance
-                            moves.append(Move((row, column), (row + 2, column), self.board))
-                if column - 1 >= 0:  # Captures to left
-                    if self.board[row + 1][column - 1][0] == 'w':  # Enemy piece to capture
-                        if not piece_pinned or pin_direction == (1, -1):
-                            moves.append(Move((row, column), (row + 1, column - 1), self.board))
-                if column + 1 <= len(self.board[row]) - 1:  # Captures to right
-                    if self.board[row + 1][column + 1][0] == 'w':  # Enemy piece to capture
-                        if not piece_pinned or pin_direction == (1, 1):
-                            moves.append(Move((row, column), (row + 1, column + 1), self.board))
+            move_amount = 1
+            start_row = 1
+            back_row = len(self.board)-1
+            enemy_color = 'w'
+
+        pawn_promotion = False
+
+        if self.board[row+move_amount][column] == '--':  # 1 square advance
+            if not piece_pinned or pin_direction == (move_amount, 0):
+                if row+move_amount == back_row:  # If piece gets to bank rank - pawn promotion
+                    pawn_promotion = True
+                moves.append(Move((row, column), (row+move_amount, column), self.board, pawn_promotion=pawn_promotion))
+                if row == start_row and self.board[row+2*move_amount][column] == '--':  # 2 square moves
+                    moves.append(Move((row, column), (row+2*move_amount, column), self.board))
+
+        if column - 1 >= 0:  # Captures to the left
+            if not piece_pinned or pin_direction == (move_amount, -1):
+                if self.board[row+move_amount][column-1][0] == enemy_color:
+                    if row + move_amount == back_row:  # If piece gets to bank rank - pawn promotion
+                        pawn_promotion = True
+                    moves.append(Move((row, column), (row+move_amount, column-1), self.board, pawn_promotion=pawn_promotion))
+                if (row+move_amount, column-1) == self.enpassant_possible:
+                    moves.append(Move((row, column), (row+move_amount, column-1), self.board, enpassant=True))
+
+        if column + 1 <= len(self.board) - 1:  # Captures to the left
+            if not piece_pinned or pin_direction == (move_amount, 1):
+                if self.board[row+move_amount][column+1][0] == enemy_color:
+                    if row + move_amount == back_row:  # If piece gets to bank rank - pawn promotion
+                        pawn_promotion = True
+                    moves.append(Move((row, column), (row+move_amount, column+1), self.board, pawn_promotion=pawn_promotion))
+                if (row+move_amount, column+1) == self.enpassant_possible:
+                    moves.append(Move((row, column), (row+move_amount, column+1), self.board, enpassant=True))
 
     def get_rook_moves(self, row, column, moves):
         """
@@ -410,6 +417,8 @@ class Move:
         if enpassant:
             self.piece_captured = 'bP' if self.piece_moved == 'wP' else 'wP'  # En passant captures opposite colored pawn
 
+        # Pawn promotion
+        self.pawn_promotion = pawn_promotion
 
         self.move_id = self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col
 
