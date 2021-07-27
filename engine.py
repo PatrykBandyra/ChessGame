@@ -31,9 +31,13 @@ class GameState:
         self.in_check = False
         self.pins = []
         self.checks = []
+        self.check_mate = False
+        self.stale_mate = False
 
         # En passant
         self.enpassant_possible = ()
+
+        # Castling
 
     def get_king_location(self, color):
         if color == 'b' or color == 'w':
