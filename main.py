@@ -11,20 +11,11 @@ MAX_FPS = 60
 HOOVERED_SQ_COLOR = (100, 100, 100)
 
 
-class Player:
-    def __init__(self, color):
-        self.color = color
-        self.player_clicks = []  # Keep track of player clicks
-
-
 class Game:
     def __init__(self):
         self.game_state = GameState()
         self.images = {}
         self.load_images()
-
-        # self.white_player = Player('white')
-        # self.black_player = Player('black')
 
         pg.init()
         pg.display.set_caption('Chess Game')
@@ -141,10 +132,11 @@ class Game:
 
                         if len(player_clicks) == 2:  # After 2nd click
                             move = Move(player_clicks[0], player_clicks[1], self.game_state.board)
-                            if move in valid_moves:
-                                print(move.get_chess_notation())
-                                self.game_state.make_move(move)
-                                move_made = True
+                            for i in range(len(valid_moves)):
+                                if move == valid_moves[i]:
+                                    print(move.get_chess_notation())
+                                    self.game_state.make_move(valid_moves[i])
+                                    move_made = True
                             sq_selected = ()
                             player_clicks = []
                             self.selected_piece = ()
