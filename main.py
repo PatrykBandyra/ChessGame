@@ -9,6 +9,8 @@ DIMENSION = 8  # Dimensions of a chess board - 8x8
 SQ_SIZE = HEIGHT // DIMENSION
 MAX_FPS = 60
 HOOVERED_SQ_COLOR = (100, 100, 100)
+POSSIBLE_MOVE_SQ_COLOR = (120, 255, 50)
+SELECTED_SQ_COLOR = (255, 255, 0)
 
 
 class Game:
@@ -42,11 +44,10 @@ class Game:
         for piece in pieces:
             self.images[piece] = pg.transform.scale(pg.image.load(f'resources/figures_images/{piece}.png'), (SQ_SIZE, SQ_SIZE))
 
-    def draw_game_state(self):
+    def draw_game_state(self, valid_moves, square_selected):
         self.draw_board()
         self.draw_hoovered_square()
-        if self.selected_piece != ():
-            self.draw_piece_selection()
+        self.highlight_squares(valid_moves, square_selected)
         self.draw_pieces()
 
     def draw_board(self):
@@ -57,10 +58,26 @@ class Game:
                 color = colors[(row + column) % 2]
                 pg.draw.rect(self.screen, color, pg.Rect(column*SQ_SIZE, row*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
-    def draw_piece_selection(self):
-        color = pg.Color('gold')
-        pg.draw.rect(self.screen, color, pg.Rect(self.selected_piece[1] * SQ_SIZE,
-                                                 self.selected_piece[0] * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+    def highlight_squares(self, valid_moves, square_selected):
+        """
+        Highlights square selected and moves for piece selected
+        """
+        if square_selected != ():
+            row, col = square_selected
+            if self.game_state.board[row][col][0] == ('w' if self.game_state.white_to_move else 'b'):  # Square selected is a piece that can be moved
+
+                # Highlights selected square
+                surface = pg.Surface((SQ_SIZE, SQ_SIZE))
+                surface.set_alpha(150)  # Transparency -> 0 = transparent, 255 = opaque
+                surface.fill(SELECTED_SQ_COLOR)
+                self.screen.blit(surface, (col*SQ_SIZE, row*SQ_SIZE))
+
+                # Highlights moves from that square
+                surface.set_alpha(100)
+                surface.fill(POSSIBLE_MOVE_SQ_COLOR)
+                for move in valid_moves:
+                    if move.start_row == row and move.start_col == col:
+                        self.screen.blit(surface, (move.end_col*SQ_SIZE, move.end_row*SQ_SIZE))
 
     def draw_hoovered_square(self):
         self.screen.blit(self.hoovered_square, (self.col*SQ_SIZE, self.row*SQ_SIZE))
@@ -89,9 +106,9 @@ class Game:
         sq_selected = ()    # (row, column)
         player_clicks = []
 
-        # Moving by dragging
-        dragging = False
-        dragging_sq_selected = ()   # (row, column)
+        # # Moving by dragging  TODO: dragging
+        # dragging = False
+        # dragging_sq_selected = ()   # (row, column)
 
         # Move validation
         valid_moves = self.game_state.get_valid_moves()
@@ -123,7 +140,6 @@ class Game:
                             player_clicks.append(sq_selected)
 
                         if len(player_clicks) == 1:  # After 1st click
-                            # if not self.game_state.is_square_empty(sq_selected):
                             if not self.game_state.board[sq_selected[0]][sq_selected[1]] == '--':
                                 self.selected_piece = sq_selected
                             else:
@@ -141,10 +157,10 @@ class Game:
                             player_clicks = []
                             self.selected_piece = ()
 
-                # DRAGGING
-                elif e.type == pg.MOUSEBUTTONDOWN:
-                    if e.button == 1:
-                        pass
+                # # DRAGGING  # TODO: dragging
+                # elif e.type == pg.MOUSEBUTTONDOWN:
+                #     if e.button == 1:
+                #         pass
 
                 # KEY HANDLERS
                 elif e.type == pg.KEYDOWN:
@@ -156,7 +172,7 @@ class Game:
                 valid_moves = self.game_state.get_valid_moves()
                 move_made = False
 
-            self.draw_game_state()
+            self.draw_game_state(valid_moves, sq_selected)
 
             clock.tick(MAX_FPS)
             pg.display.flip()
