@@ -23,6 +23,7 @@ class Game:
         pg.display.set_caption('Chess Game')
         pg.display.set_icon(pg.transform.scale(pg.image.load('resources/logo.png'), (32, 32)))
         self.screen = pg.display.set_mode((WIDTH, HEIGHT))
+        self.colors = [pg.Color('white'), pg.Color('gray')]
 
         self.selected_piece = ()
         self.location = ()
@@ -52,10 +53,9 @@ class Game:
 
     def draw_board(self):
         # Top left square is always light
-        colors = [pg.Color('white'), pg.Color('gray')]
         for row in range(DIMENSION):
             for column in range(DIMENSION):
-                color = colors[(row + column) % 2]
+                color = self.colors[(row + column) % 2]
                 pg.draw.rect(self.screen, color, pg.Rect(column*SQ_SIZE, row*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
     def highlight_squares(self, valid_moves, square_selected):
@@ -89,6 +89,31 @@ class Game:
                 if piece != '--':
                     self.screen.blit(self.images[piece], pg.Rect(column*SQ_SIZE, row*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
+    def animate_move(self, move, clock):
+        d_row = move.end_row - move.start_row
+        d_col = move.end_col - move.start_col
+        frames_per_square = 10  # Frames to move one square
+        frame_count = (abs(d_row) + abs(d_col)) * frames_per_square
+        for frame in range(frame_count+1):
+            row, col = (move.start_row + d_row*frame/frame_count, move.start_col + d_col*frame/frame_count)
+            self.draw_board()
+            self.draw_pieces()
+
+            # Erase the piece moved from its ending square
+            color = self.colors[(move.end_row + move.end_col) % 2]
+            end_square = pg.Rect(move.end_col*SQ_SIZE, move.end_row*SQ_SIZE, SQ_SIZE, SQ_SIZE)
+            pg.draw.rect(self.screen, color, end_square)
+
+            # Draw captured piece onto rectangle
+            if move.piece_captured != '--':
+                self.screen.blit(self.images[move.piece_captured], end_square)
+
+            # Draw moving piece
+            self.screen.blit(self.images[move.piece_moved], pg.Rect(col*SQ_SIZE, row*SQ_SIZE, SQ_SIZE, SQ_SIZE))
+
+            pg.display.flip()
+            clock.tick(60)
+
     def start(self):
         """
         e.button:
@@ -114,6 +139,10 @@ class Game:
         valid_moves = self.game_state.get_valid_moves()
         move_made = False
 
+        animate = False
+
+        game_over = False
+
         while running:
 
             self.location = pg.mouse.get_pos()  # (x, y)
@@ -128,34 +157,35 @@ class Game:
 
                 # MOUSE CLICKS
                 elif e.type == pg.MOUSEBUTTONUP:
-
-                    # MOVE - left mouse button
-                    if e.button == 1:
-                        if sq_selected == (self.row, self.col):
-                            sq_selected = ()
-                            player_clicks = []
-                            self.selected_piece = ()
-                        else:
-                            sq_selected = (self.row, self.col)
-                            player_clicks.append(sq_selected)
-
-                        if len(player_clicks) == 1:  # After 1st click
-                            if not self.game_state.board[sq_selected[0]][sq_selected[1]] == '--':
-                                self.selected_piece = sq_selected
-                            else:
+                    if not game_over:
+                        # MOVE - left mouse button
+                        if e.button == 1:
+                            if sq_selected == (self.row, self.col):
                                 sq_selected = ()
                                 player_clicks = []
+                                self.selected_piece = ()
+                            else:
+                                sq_selected = (self.row, self.col)
+                                player_clicks.append(sq_selected)
 
-                        if len(player_clicks) == 2:  # After 2nd click
-                            move = Move(player_clicks[0], player_clicks[1], self.game_state.board)
-                            for i in range(len(valid_moves)):
-                                if move == valid_moves[i]:
-                                    print(move.get_chess_notation())
-                                    self.game_state.make_move(valid_moves[i])
-                                    move_made = True
-                            sq_selected = ()
-                            player_clicks = []
-                            self.selected_piece = ()
+                            if len(player_clicks) == 1:  # After 1st click
+                                if not self.game_state.board[sq_selected[0]][sq_selected[1]] == '--':
+                                    self.selected_piece = sq_selected
+                                else:
+                                    sq_selected = ()
+                                    player_clicks = []
+
+                            if len(player_clicks) == 2:  # After 2nd click
+                                move = Move(player_clicks[0], player_clicks[1], self.game_state.board)
+                                for i in range(len(valid_moves)):
+                                    if move == valid_moves[i]:
+                                        print(move.get_chess_notation())
+                                        self.game_state.make_move(valid_moves[i])
+                                        move_made = True
+                                        animate = True
+                                sq_selected = ()
+                                player_clicks = []
+                                self.selected_piece = ()
 
                 # # DRAGGING  # TODO: dragging
                 # elif e.type == pg.MOUSEBUTTONDOWN:
@@ -164,13 +194,28 @@ class Game:
 
                 # KEY HANDLERS
                 elif e.type == pg.KEYDOWN:
+
+                    # Undo move
                     if e.key == pg.K_z:
                         self.game_state.undo_move()
                         move_made = True
+                        animate = False
+
+                    # Reset the board
+                    if e.key == pg.K_r:
+                        self.game_state = GameState()
+                        valid_moves = self.game_state.get_valid_moves()
+                        sq_selected = ()
+                        player_clicks = []
+                        move_made = False
+                        animate = False
 
             if move_made:
+                if animate:
+                    self.animate_move(self.game_state.move_log[-1], clock)
                 valid_moves = self.game_state.get_valid_moves()
                 move_made = False
+                animate = False
 
             self.draw_game_state(valid_moves, sq_selected)
 
