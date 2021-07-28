@@ -201,12 +201,19 @@ class Game:
                         move_made = True
                         animate = False
 
+                        # Undoing after game over - reset flags
+                        if game_over:
+                            game_over = False
+                            self.game_state.check_mate = False
+                            self.game_state.stale_mate = False
+
                     # Reset the board
                     if e.key == pg.K_r:
                         self.game_state = GameState()
                         valid_moves = self.game_state.get_valid_moves()
                         sq_selected = ()
                         player_clicks = []
+                        game_over = False
                         move_made = False
                         animate = False
 
@@ -219,9 +226,26 @@ class Game:
 
             self.draw_game_state(valid_moves, sq_selected)
 
+            if self.game_state.check_mate:
+                game_over = True
+                if self.game_state.white_to_move:
+                    self.draw_text('Black wins by checkmate')
+                else:
+                    self.draw_text('White wins by checkmate')
+            elif self.game_state.stale_mate:
+                game_over = True
+                self.draw_text('Stalemate')
+
             clock.tick(MAX_FPS)
             pg.display.flip()
 
+    def draw_text(self, text):
+        font = pg.font.SysFont('Helvitca', 32, True, False)
+        text_object = font.render(text, False, pg.Color('Dark Red'))
+        text_location = pg.Rect(0, 0, WIDTH, HEIGHT).move(WIDTH//2-text_object.get_width()//2, HEIGHT//2-text_object.get_height()//2)
+        self.screen.blit(text_object, text_location)
+        text_object = font.render(text, False, pg.Color('Red'))
+        self.screen.blit(text_object, text_location.move(2, 2))  # Shadow effect
 
 def main():
     game = Game()

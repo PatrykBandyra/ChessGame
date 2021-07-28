@@ -208,6 +208,12 @@ class GameState:
             else:
                 self.get_castle_moves(self.black_king_location[0], self.black_king_location[1], moves)
 
+        if len(moves) == 0:  # Either checkmate or stalemate
+            if self.is_in_check():
+                self.check_mate = True
+            else:
+                self.stale_mate = True
+
         return moves
 
     def check_for_pins_and_checks(self):
