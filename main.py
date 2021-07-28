@@ -105,7 +105,7 @@ class Game:
             pg.draw.rect(self.screen, color, end_square)
 
             # Draw captured piece onto rectangle
-            if move.piece_captured != '--':
+            if move.piece_captured != '--' and not move.enpassant:
                 self.screen.blit(self.images[move.piece_captured], end_square)
 
             # Draw moving piece
@@ -246,6 +246,7 @@ class Game:
         self.screen.blit(text_object, text_location)
         text_object = font.render(text, False, pg.Color('Red'))
         self.screen.blit(text_object, text_location.move(2, 2))  # Shadow effect
+
 
 def main():
     game = Game()

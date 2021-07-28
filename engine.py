@@ -360,7 +360,7 @@ class GameState:
                 if (row+move_amount, column-1) == self.enpassant_possible:
                     moves.append(Move((row, column), (row+move_amount, column-1), self.board, enpassant=True))
 
-        if column + 1 <= len(self.board) - 1:  # Captures to the left
+        if column + 1 <= len(self.board) - 1:  # Captures to the right
             if not piece_pinned or pin_direction == (move_amount, 1):
                 if self.board[row+move_amount][column+1][0] == enemy_color:
                     if row + move_amount == back_row:  # If piece gets to bank rank - pawn promotion
