@@ -164,6 +164,10 @@ class GameState:
                     self.board[move.end_row][move.end_col-2] = self.board[move.end_row][move.end_col+1]  # Move rook
                     self.board[move.end_row][move.end_col+1] = '--'  # Erase old rook
 
+            # Reset flags
+            self.check_mate = False
+            self.stale_mate = False
+
     def get_valid_moves(self):
         """
         All moves with considering checks.

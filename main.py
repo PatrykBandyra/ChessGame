@@ -206,12 +206,7 @@ class Game:
                         self.game_state.undo_move()
                         move_made = True
                         animate = False
-
-                        # Undoing after game over - reset flags
-                        if game_over:
-                            game_over = False
-                            self.game_state.check_mate = False
-                            self.game_state.stale_mate = False
+                        game_over = False
 
                     # Reset the board
                     if e.key == pg.K_r:
@@ -239,10 +234,10 @@ class Game:
                 move_made = False
                 animate = False
 
-            if not player_one and not player_two:
-                self.draw_game_state(valid_moves, sq_selected, display_hoovering=False)
-            else:
+            if is_human_turn:
                 self.draw_game_state(valid_moves, sq_selected, display_hoovering=True)
+            else:
+                self.draw_game_state(valid_moves, sq_selected, display_hoovering=False)
 
             if self.game_state.check_mate:
                 game_over = True
