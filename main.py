@@ -3,6 +3,7 @@ Main file. Handles user input and displays the current game state.
 """
 import pygame as pg
 from engine import GameState, Move
+import chess_ai
 
 WIDTH = HEIGHT = 512
 DIMENSION = 8  # Dimensions of a chess board - 8x8
@@ -142,8 +143,12 @@ class Game:
         animate = False
 
         game_over = False
+        player_one = True  # If human is playing white - True, if ai is playing - False
+        player_two = False  # Same as above but for black
 
         while running:
+
+            is_human_turn = (self.game_state.white_to_move and player_one) or (not self.game_state.white_to_move and player_two)
 
             self.location = pg.mouse.get_pos()  # (x, y)
             self.col = self.location[0] // SQ_SIZE
@@ -157,7 +162,7 @@ class Game:
 
                 # MOUSE CLICKS
                 elif e.type == pg.MOUSEBUTTONUP:
-                    if not game_over:
+                    if not game_over and is_human_turn:
                         # MOVE - left mouse button
                         if e.button == 1:
                             if sq_selected == (self.row, self.col):
@@ -216,6 +221,13 @@ class Game:
                         game_over = False
                         move_made = False
                         animate = False
+
+            # Ai move finder logic
+            if not game_over and not is_human_turn:
+                ai_move = chess_ai.find_random_move(valid_moves)
+                self.game_state.make_move(ai_move)
+                move_made = True
+                animate = True
 
             if move_made:
                 if animate:
