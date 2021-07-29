@@ -3,7 +3,7 @@ Main file. Handles user input and displays the current game state.
 """
 import pygame as pg
 from engine import GameState, Move
-import chess_ai
+from chess_ai import ChessAi
 
 WIDTH = HEIGHT = 512
 DIMENSION = 8  # Dimensions of a chess board - 8x8
@@ -220,9 +220,9 @@ class Game:
 
             # Ai move finder logic
             if not game_over and not is_human_turn:
-                ai_move = chess_ai.find_best_move(self.game_state, valid_moves)
+                ai_move = ChessAi.find_best_move_minmax(self.game_state, valid_moves)
                 if ai_move is None:
-                    ai_move = chess_ai.find_random_move(valid_moves)
+                    ai_move = ChessAi.find_random_move(valid_moves)
                 self.game_state.make_move(ai_move)
                 move_made = True
                 animate = True
