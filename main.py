@@ -46,9 +46,10 @@ class Game:
         for piece in pieces:
             self.images[piece] = pg.transform.scale(pg.image.load(f'resources/figures_images/{piece}.png'), (SQ_SIZE, SQ_SIZE))
 
-    def draw_game_state(self, valid_moves, square_selected):
+    def draw_game_state(self, valid_moves, square_selected, display_hoovering=True):
         self.draw_board()
-        self.draw_hoovered_square()
+        if display_hoovering:
+            self.draw_hoovered_square()
         self.highlight_squares(valid_moves, square_selected)
         self.draw_pieces()
 
@@ -224,7 +225,9 @@ class Game:
 
             # Ai move finder logic
             if not game_over and not is_human_turn:
-                ai_move = chess_ai.find_random_move(valid_moves)
+                ai_move = chess_ai.find_best_move(self.game_state, valid_moves)
+                if ai_move is None:
+                    ai_move = chess_ai.find_random_move(valid_moves)
                 self.game_state.make_move(ai_move)
                 move_made = True
                 animate = True
@@ -236,7 +239,10 @@ class Game:
                 move_made = False
                 animate = False
 
-            self.draw_game_state(valid_moves, sq_selected)
+            if not player_one and not player_two:
+                self.draw_game_state(valid_moves, sq_selected, display_hoovering=False)
+            else:
+                self.draw_game_state(valid_moves, sq_selected, display_hoovering=True)
 
             if self.game_state.check_mate:
                 game_over = True
