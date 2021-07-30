@@ -8,7 +8,7 @@ class ChessAi:
     STALEMATE = 0
 
     next_move = None
-    DEPTH = 3
+    DEPTH = 2
 
     @staticmethod
     def find_random_move(valid_moves):
@@ -58,6 +58,7 @@ class ChessAi:
         """
         Helper method to make first recursive call.
         """
+        random.shuffle(valid_moves)
         ChessAi.find_move_minmax(game_state, valid_moves, ChessAi.DEPTH, game_state.white_to_move)
         return ChessAi.next_move
 
@@ -65,8 +66,6 @@ class ChessAi:
     def find_move_minmax(game_state, valid_moves, depth, white_to_move):
         if depth == 0:
             return ChessAi.score_board(game_state)
-
-        random.shuffle(valid_moves)  # TODO: Added experimentally - later with better evaluating system it might be deleted (?)
 
         if white_to_move:
             max_score = -ChessAi.CHECKMATE
@@ -93,6 +92,30 @@ class ChessAi:
                         ChessAi.next_move = move
                 game_state.undo_move()
             return min_score
+
+    @staticmethod
+    def find_best_move_negamax(game_state, valid_moves):
+        random.shuffle(valid_moves)
+        ChessAi.find_move_negamax(game_state, valid_moves, ChessAi.DEPTH, 1 if game_state.white_to_move else -1)
+        return ChessAi.next_move
+
+    @staticmethod
+    def find_move_negamax(game_state, valid_moves, depth, turn_multiplier):
+        if depth == 0:
+            return turn_multiplier * ChessAi.score_board(game_state)
+
+        max_score = -ChessAi.CHECKMATE
+        for move in valid_moves:
+            game_state.make_move(move)
+            next_moves = game_state.get_valid_moves()
+            score = -ChessAi.find_move_negamax(game_state, next_moves, depth-1, -turn_multiplier)
+            if score > max_score:
+                max_score = score
+                if depth == ChessAi.DEPTH:
+                    ChessAi.next_move = move
+            game_state.undo_move()
+
+        return max_score
 
     @staticmethod
     def score_board(game_state):
