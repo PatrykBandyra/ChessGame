@@ -144,7 +144,7 @@ class Game:
         animate = False
 
         game_over = False
-        player_one = True  # If human is playing white - True, if ai is playing - False
+        player_one = False  # If human is playing white - True, if ai is playing - False
         player_two = False  # Same as above but for black
 
         while running:
@@ -220,7 +220,7 @@ class Game:
 
             # Ai move finder logic
             if not game_over and not is_human_turn:
-                ai_move = ChessAi.find_best_move_negamax(self.game_state, valid_moves)
+                ai_move = ChessAi.find_best_move_negamax_alpha_beta(self.game_state, valid_moves)
                 if ai_move is None:
                     ai_move = ChessAi.find_random_move(valid_moves)
                 self.game_state.make_move(ai_move)

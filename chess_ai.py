@@ -8,7 +8,7 @@ class ChessAi:
     STALEMATE = 0
 
     next_move = None
-    DEPTH = 2
+    DEPTH = 3
 
     @staticmethod
     def find_random_move(valid_moves):
@@ -114,6 +114,37 @@ class ChessAi:
                 if depth == ChessAi.DEPTH:
                     ChessAi.next_move = move
             game_state.undo_move()
+
+        return max_score
+
+    @staticmethod
+    def find_best_move_negamax_alpha_beta(game_state, valid_moves):
+        random.shuffle(valid_moves)
+        ChessAi.find_move_negamax_alpha_beta(game_state, valid_moves, ChessAi.DEPTH, -ChessAi.CHECKMATE, ChessAi.CHECKMATE, 1 if game_state.white_to_move else -1)
+        return ChessAi.next_move
+
+    @staticmethod
+    def find_move_negamax_alpha_beta(game_state, valid_moves, depth, alpha, beta, turn_multiplier):
+        if depth == 0:
+            return turn_multiplier * ChessAi.score_board(game_state)
+
+        # TODO: Move ordering - implement later
+
+        max_score = -ChessAi.CHECKMATE
+        for move in valid_moves:
+            game_state.make_move(move)
+            next_moves = game_state.get_valid_moves()
+            score = -ChessAi.find_move_negamax_alpha_beta(game_state, next_moves, depth-1, -beta, -alpha, -turn_multiplier)
+            if score > max_score:
+                max_score = score
+                if depth == ChessAi.DEPTH:
+                    ChessAi.next_move = move
+            game_state.undo_move()
+
+            if max_score > alpha:  # Pruning
+                alpha = max_score
+            if alpha >= beta:
+                break
 
         return max_score
 
