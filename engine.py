@@ -37,6 +37,7 @@ class GameState:
 
         # En passant
         self.enpassant_possible = ()
+        self.enpassant_possible_log = [self.enpassant_possible]
 
         # Castling
         self.current_castle_rights = CastleRights(True, True, True, True)
@@ -88,6 +89,9 @@ class GameState:
                 else:  # Queen side castle
                     self.board[move.end_row][move.end_col+1] = self.board[move.end_row][move.end_col-2]  # Moves the rook
                     self.board[move.end_row][move.end_col-2] = '--'  # Erase old rook
+
+            # Update the enpassant log
+            self.enpassant_possible_log.append(self.enpassant_possible)
 
             # Update castling rights - whenever it is a rook or a king move
             self.update_castle_rights(move)
@@ -145,11 +149,9 @@ class GameState:
             if move.enpassant:
                 self.board[move.end_row][move.end_col] = '--'  # Remove the pawn that was added in the wrong square
                 self.board[move.start_row][move.end_col] = move.piece_captured  # Put back the captured pawn
-                self.enpassant_possible = (move.end_row, move.end_col)  # Allow en passant to happen on the next move
-
-            # Undoing a 2 square pawn advance resets en passant possibility
-            if move.piece_moved[1] == 'P' and abs(move.start_row-move.end_row) == 2:
-                self.enpassant_possible = ()
+            # Updating log
+            self.enpassant_possible_log.pop()
+            self.enpassant_possible = self.enpassant_possible_log[-1]
 
             # Undoing castling rights
             self.castle_rights_log.pop()  # Get rid of the new castle rights from the move we are undoing

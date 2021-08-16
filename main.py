@@ -144,8 +144,8 @@ class Game:
         animate = False
 
         game_over = False
-        player_one = False  # If human is playing white - True, if ai is playing - False
-        player_two = False  # Same as above but for black
+        player_one = True  # If human is playing white - True, if ai is playing - False
+        player_two = True  # Same as above but for black
 
         while running:
 
