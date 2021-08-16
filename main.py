@@ -5,9 +5,11 @@ import pygame as pg
 from engine import GameState, Move
 from chess_ai import ChessAi
 
-WIDTH = HEIGHT = 512
+BOARD_WIDTH = BOARD_HEIGHT = 512
+MOVE_LOG_PANEL_WIDTH = 250
+MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8  # Dimensions of a chess board - 8x8
-SQ_SIZE = HEIGHT // DIMENSION
+SQ_SIZE = BOARD_HEIGHT // DIMENSION
 MAX_FPS = 60
 HOOVERED_SQ_COLOR = (100, 100, 100)
 POSSIBLE_MOVE_SQ_COLOR = (120, 255, 50)
@@ -23,7 +25,7 @@ class Game:
         pg.init()
         pg.display.set_caption('Chess Game')
         pg.display.set_icon(pg.transform.scale(pg.image.load('resources/logo.png'), (32, 32)))
-        self.screen = pg.display.set_mode((WIDTH, HEIGHT))
+        self.screen = pg.display.set_mode((BOARD_WIDTH + MOVE_LOG_PANEL_WIDTH, BOARD_HEIGHT))
         self.colors = [pg.Color('white'), pg.Color('gray')]
 
         self.selected_piece = ()
@@ -46,12 +48,13 @@ class Game:
         for piece in pieces:
             self.images[piece] = pg.transform.scale(pg.image.load(f'resources/figures_images/{piece}.png'), (SQ_SIZE, SQ_SIZE))
 
-    def draw_game_state(self, valid_moves, square_selected, display_hoovering=True):
+    def draw_game_state(self, valid_moves, square_selected, move_log_font, display_hoovering=True):
         self.draw_board()
         if display_hoovering:
             self.draw_hoovered_square()
         self.highlight_squares(valid_moves, square_selected)
         self.draw_pieces()
+        self.draw_move_log(move_log_font)
 
     def draw_board(self):
         # Top left square is always light
@@ -59,6 +62,10 @@ class Game:
             for column in range(DIMENSION):
                 color = self.colors[(row + column) % 2]
                 pg.draw.rect(self.screen, color, pg.Rect(column*SQ_SIZE, row*SQ_SIZE, SQ_SIZE, SQ_SIZE))
+
+    def draw_hoovered_square(self):
+        if 0 < self.location[0] < BOARD_WIDTH and 0 < self.location[1] < BOARD_HEIGHT-1:  # BOARD_HEIGHT-1 because this is the real height (pygame nuances)
+            self.screen.blit(self.hoovered_square, (self.col*SQ_SIZE, self.row*SQ_SIZE))
 
     def highlight_squares(self, valid_moves, square_selected):
         """
@@ -81,15 +88,23 @@ class Game:
                     if move.start_row == row and move.start_col == col:
                         self.screen.blit(surface, (move.end_col*SQ_SIZE, move.end_row*SQ_SIZE))
 
-    def draw_hoovered_square(self):
-        self.screen.blit(self.hoovered_square, (self.col*SQ_SIZE, self.row*SQ_SIZE))
-
     def draw_pieces(self):
         for row in range(DIMENSION):
             for column in range(DIMENSION):
                 piece = self.game_state.board[row][column]
                 if piece != '--':
                     self.screen.blit(self.images[piece], pg.Rect(column*SQ_SIZE, row*SQ_SIZE, SQ_SIZE, SQ_SIZE))
+
+    def draw_move_log(self, move_log_font):
+        pass
+        # move_log_rect = pg.Rect()
+        #
+        # text_object = font.render(text, False, pg.Color('Dark Red'))
+        # text_location = pg.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH // 2 - text_object.get_width() // 2,
+        #                                                               BOARD_HEIGHT // 2 - text_object.get_height() // 2)
+        # self.screen.blit(text_object, text_location)
+        # text_object = font.render(text, False, pg.Color('Red'))
+        # self.screen.blit(text_object, text_location.move(2, 2))  # Shadow effect
 
     def animate_move(self, move, clock):
         d_row = move.end_row - move.start_row
@@ -107,7 +122,10 @@ class Game:
             pg.draw.rect(self.screen, color, end_square)
 
             # Draw captured piece onto rectangle
-            if move.piece_captured != '--' and not move.enpassant:
+            if move.piece_captured != '--':
+                if move.enpassant:
+                    enpassant_row = move.end_row+1 if move.piece_captured[0] == 'b' else move.end_row-1
+                    end_square = pg.Rect(move.end_col*SQ_SIZE, enpassant_row*SQ_SIZE, SQ_SIZE, SQ_SIZE)
                 self.screen.blit(self.images[move.piece_captured], end_square)
 
             # Draw moving piece
@@ -128,6 +146,8 @@ class Game:
         clock = pg.time.Clock()
         self.screen.fill(pg.Color('white'))
         running = True
+
+        move_log_font = pg.font.SysFont('Arial', 12, False, False)
 
         # Moving by clicking
         sq_selected = ()    # (row, column)
@@ -166,7 +186,9 @@ class Game:
                     if not game_over and is_human_turn:
                         # MOVE - left mouse button
                         if e.button == 1:
-                            if sq_selected == (self.row, self.col):
+                            # DESELECT
+                            # The user clicked the same square twice or user clicked mouse log
+                            if sq_selected == (self.row, self.col) or self.col >= len(self.game_state.board):
                                 sq_selected = ()
                                 player_clicks = []
                                 self.selected_piece = ()
@@ -235,27 +257,23 @@ class Game:
                 animate = False
 
             if is_human_turn:
-                self.draw_game_state(valid_moves, sq_selected, display_hoovering=True)
+                self.draw_game_state(valid_moves, sq_selected, move_log_font, display_hoovering=True)
             else:
-                self.draw_game_state(valid_moves, sq_selected, display_hoovering=False)
+                self.draw_game_state(valid_moves, sq_selected, move_log_font, display_hoovering=False)
 
-            if self.game_state.check_mate:
+            if self.game_state.check_mate or self.game_state.stale_mate:
                 game_over = True
-                if self.game_state.white_to_move:
-                    self.draw_text('Black wins by checkmate')
-                else:
-                    self.draw_text('White wins by checkmate')
-            elif self.game_state.stale_mate:
-                game_over = True
-                self.draw_text('Stalemate')
+                text = 'Stalemate' if self.game_state.stale_mate else\
+                    'Black wins by checkmate' if self.game_state.white_to_move else 'White wins by checkmate'
+                self.draw_end_game_text(text)
 
             clock.tick(MAX_FPS)
             pg.display.flip()
 
-    def draw_text(self, text):
+    def draw_end_game_text(self, text):
         font = pg.font.SysFont('Helvitca', 32, True, False)
         text_object = font.render(text, False, pg.Color('Dark Red'))
-        text_location = pg.Rect(0, 0, WIDTH, HEIGHT).move(WIDTH//2-text_object.get_width()//2, HEIGHT//2-text_object.get_height()//2)
+        text_location = pg.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH // 2 - text_object.get_width() // 2, BOARD_HEIGHT // 2 - text_object.get_height() // 2)
         self.screen.blit(text_object, text_location)
         text_object = font.render(text, False, pg.Color('Red'))
         self.screen.blit(text_object, text_location.move(2, 2))  # Shadow effect
