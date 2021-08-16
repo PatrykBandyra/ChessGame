@@ -6,7 +6,7 @@ from engine import GameState, Move
 from chess_ai import ChessAi
 
 BOARD_WIDTH = BOARD_HEIGHT = 512
-MOVE_LOG_PANEL_WIDTH = 250
+MOVE_LOG_PANEL_WIDTH = 270
 MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8  # Dimensions of a chess board - 8x8
 SQ_SIZE = BOARD_HEIGHT // DIMENSION
@@ -95,16 +95,34 @@ class Game:
                 if piece != '--':
                     self.screen.blit(self.images[piece], pg.Rect(column*SQ_SIZE, row*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
-    def draw_move_log(self, move_log_font):
-        pass
-        # move_log_rect = pg.Rect()
-        #
-        # text_object = font.render(text, False, pg.Color('Dark Red'))
-        # text_location = pg.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH // 2 - text_object.get_width() // 2,
-        #                                                               BOARD_HEIGHT // 2 - text_object.get_height() // 2)
-        # self.screen.blit(text_object, text_location)
-        # text_object = font.render(text, False, pg.Color('Red'))
-        # self.screen.blit(text_object, text_location.move(2, 2))  # Shadow effect
+    def draw_move_log(self, font):
+        move_log_rect = pg.Rect(BOARD_WIDTH, 0, MOVE_LOG_PANEL_WIDTH, MOVE_LOG_PANEL_HEIGHT)
+        pg.draw.rect(self.screen, pg.Color('black'), move_log_rect)
+        move_log = self.game_state.move_log
+
+        move_texts = []
+        for i in range(0, len(move_log), 2):
+            move_string = f'{i//2 + 1}. {str(move_log[i])} '
+            if i + 1 < len(move_log):  # Make sure black made a move
+                move_string += f'{str(move_log[i+1])}  '
+            move_texts.append(move_string)
+
+        moves_per_row = 3
+        padding = 5
+        line_spacing = 2
+        text_y = padding
+
+        for i in range(0, len(move_texts), moves_per_row):
+
+            text = ''
+            for j in range(moves_per_row):
+                if i + j < len(move_texts):
+                    text += move_texts[i+j]
+
+            text_object = font.render(text, True, pg.Color('white'))
+            text_location = move_log_rect.move(padding, text_y)
+            self.screen.blit(text_object, text_location)
+            text_y += text_object.get_height() + line_spacing
 
     def animate_move(self, move, clock):
         d_row = move.end_row - move.start_row
@@ -147,7 +165,7 @@ class Game:
         self.screen.fill(pg.Color('white'))
         running = True
 
-        move_log_font = pg.font.SysFont('Arial', 12, False, False)
+        move_log_font = pg.font.SysFont('Arial', 14, False, False)
 
         # Moving by clicking
         sq_selected = ()    # (row, column)
@@ -207,7 +225,6 @@ class Game:
                                 move = Move(player_clicks[0], player_clicks[1], self.game_state.board)
                                 for i in range(len(valid_moves)):
                                     if move == valid_moves[i]:
-                                        print(move.get_chess_notation())
                                         self.game_state.make_move(valid_moves[i])
                                         move_made = True
                                         animate = True

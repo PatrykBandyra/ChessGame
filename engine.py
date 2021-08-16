@@ -534,11 +534,35 @@ class Move:
         # Castle move
         self.is_castle_move = is_castle_move
 
+        # Capture move
+        self.is_capture_move = self.piece_captured != '--'
+
         self.move_id = self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col
 
     def __eq__(self, other):
         if isinstance(other, Move):
             return self.move_id == other.move_id
+
+    def __str__(self):
+        # Castle move -> 'O-O' - king side castle, 'O-O-O' - queen side castle
+        if self.is_castle_move:
+            return 'O-O' if self.end_col == 6 else 'O-O-O'
+
+        end_square = self.get_rank_file(self.end_row, self.end_col)
+
+        # Pawn moves
+        if self.piece_moved[1] == 'P':
+            if self.is_capture_move:
+                return f'{self.cols_to_files[self.start_col]}x{end_square}'
+            else:
+                return end_square
+
+        # Piece moves
+        move_string = self.piece_moved[1]
+        if self.is_capture_move:
+            move_string += 'x'
+        move_string += end_square
+        return move_string
 
     def get_chess_notation(self):
         return self.get_rank_file(self.start_row, self.start_col) + self.get_rank_file(self.end_row, self.end_col)
