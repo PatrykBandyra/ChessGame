@@ -341,11 +341,13 @@ class GameState:
             start_row = len(self.board)-2
             back_row = 0
             enemy_color = 'b'
+            king_row, king_col = self.white_king_location
         else:
             move_amount = 1
             start_row = 1
             back_row = len(self.board)-1
             enemy_color = 'w'
+            king_row, king_col = self.black_king_location
 
         pawn_promotion = False
 
@@ -364,7 +366,26 @@ class GameState:
                         pawn_promotion = True
                     moves.append(Move((row, column), (row+move_amount, column-1), self.board, pawn_promotion=pawn_promotion))
                 if (row+move_amount, column-1) == self.enpassant_possible:
-                    moves.append(Move((row, column), (row+move_amount, column-1), self.board, enpassant=True))
+                    attacking_piece = blocking_piece = False
+                    if king_row == row:
+                        if king_col < column:  # King is left of the pawn
+                            # Inside between king and pawn; outside range between pawn border
+                            inside_range = range(king_col+1, column-1)
+                            outside_range = range(column+1, len(self.board))
+                        else:  # King is right of the pawn
+                            inside_range = range(king_col-1, column, -1)
+                            outside_range = range(column-2, -1, -1)
+                        for i in inside_range:
+                            if self.board[row][i] != '--':  # Some other piece beside enpassant pawn blocks
+                                blocking_piece = True
+                        for i in outside_range:
+                            square = self.board[row][i]
+                            if square[0] == enemy_color and (square[1] == 'R' or square[1] == 'Q'):  # Attacking piece
+                                attacking_piece = True
+                            elif square != '--':
+                                blocking_piece = True
+                    if not attacking_piece or blocking_piece:
+                        moves.append(Move((row, column), (row+move_amount, column-1), self.board, enpassant=True))
 
         if column + 1 <= len(self.board) - 1:  # Captures to the right
             if not piece_pinned or pin_direction == (move_amount, 1):
@@ -373,7 +394,26 @@ class GameState:
                         pawn_promotion = True
                     moves.append(Move((row, column), (row+move_amount, column+1), self.board, pawn_promotion=pawn_promotion))
                 if (row+move_amount, column+1) == self.enpassant_possible:
-                    moves.append(Move((row, column), (row+move_amount, column+1), self.board, enpassant=True))
+                    attacking_piece = blocking_piece = False
+                    if king_row == row:
+                        if king_col < column:  # King is left of the pawn
+                            # Inside between king and pawn; outside range between pawn border
+                            inside_range = range(king_col + 1, column)
+                            outside_range = range(column + 2, len(self.board))
+                        else:  # King is right of the pawn
+                            inside_range = range(king_col - 1, column + 1, -1)
+                            outside_range = range(column - 1, -1, -1)
+                        for i in inside_range:
+                            if self.board[row][i] != '--':  # Some other piece beside enpassant pawn blocks
+                                blocking_piece = True
+                        for i in outside_range:
+                            square = self.board[row][i]
+                            if square[0] == enemy_color and (square[1] == 'R' or square[1] == 'Q'):  # Attacking piece
+                                attacking_piece = True
+                            elif square != '--':
+                                blocking_piece = True
+                    if not attacking_piece or blocking_piece:
+                        moves.append(Move((row, column), (row + move_amount, column + 1), self.board, enpassant=True))
 
     def get_rook_moves(self, row, column, moves):
         """
