@@ -1,9 +1,84 @@
 import random
+import numpy as np
 
 
 class ChessAi:
 
     PIECE_SCORES = {'K': 0, 'Q': 10, 'R': 5, 'B': 3, 'N': 3, 'P': 1}
+    KNIGHT_SCORES = np.array(
+        [
+            [1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 2, 2, 2, 2, 2, 2, 1],
+            [1, 2, 3, 3, 3, 3, 2, 1],
+            [1, 2, 3, 4, 4, 3, 2, 1],
+            [1, 2, 3, 4, 4, 3, 2, 1],
+            [1, 2, 3, 3, 3, 3, 2, 1],
+            [1, 2, 2, 2, 2, 2, 2, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1]
+        ]
+    )
+    BISHOP_SCORES = np.array(
+        [
+            [4, 3, 2, 1, 1, 2, 3, 4],
+            [3, 4, 3, 2, 2, 3, 4, 3],
+            [2, 3, 4, 3, 3, 4, 3, 2],
+            [1, 2, 3, 4, 4, 3, 2, 1],
+            [1, 2, 3, 4, 4, 3, 2, 1],
+            [2, 3, 4, 3, 3, 4, 3, 2],
+            [3, 4, 3, 2, 2, 3, 4, 3],
+            [4, 3, 2, 1, 1, 2, 3, 4]
+        ]
+    )
+    QUEEN_SCORES = np.array(
+        [
+            [1, 1, 1, 3, 1, 1, 1, 1],
+            [1, 2, 3, 3, 3, 1, 1, 1],
+            [1, 4, 3, 3, 3, 4, 2, 1],
+            [1, 2, 3, 3, 3, 2, 2, 1],
+            [1, 2, 3, 3, 3, 2, 2, 1],
+            [1, 4, 3, 3, 3, 4, 2, 1],
+            [1, 1, 2, 3, 3, 1, 1, 1],
+            [1, 1, 1, 3, 1, 1, 1, 1]
+        ]
+    )
+    ROOK_SCORES = np.array(
+        [
+            [4, 3, 4, 4, 4, 4, 3, 4],
+            [4, 4, 4, 4, 4, 4, 4, 4],
+            [1, 1, 2, 3, 3, 2, 1, 1],
+            [1, 2, 3, 4, 4, 3, 2, 1],
+            [1, 2, 3, 4, 4, 3, 2, 1],
+            [1, 1, 2, 2, 2, 2, 1, 1],
+            [4, 4, 4, 4, 4, 4, 4, 4],
+            [4, 3, 4, 4, 4, 4, 3, 4]
+        ]
+    )
+    WHITE_PAWN_SCORES = np.array(
+        [
+            [8, 8, 8, 8, 8, 8, 8, 8],
+            [8, 8, 8, 8, 8, 8, 8, 8],
+            [5, 6, 6, 7, 7, 6, 6, 5],
+            [2, 3, 3, 5, 5, 3, 3, 2],
+            [1, 2, 3, 4, 4, 3, 2, 1],
+            [1, 1, 2, 3, 3, 2, 1, 1],
+            [1, 1, 1, 0, 0, 1, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0]
+        ]
+    )
+    BLACK_PAWN_SCORES = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 1, 0, 0, 1, 1, 1],
+            [1, 1, 2, 3, 3, 2, 1, 1],
+            [1, 2, 3, 4, 4, 3, 2, 1],
+            [2, 3, 3, 5, 5, 3, 3, 2],
+            [5, 6, 6, 7, 7, 6, 6, 5],
+            [8, 8, 8, 8, 8, 8, 8, 8],
+            [8, 8, 8, 8, 8, 8, 8, 8]
+        ]
+    )
+    PIECE_POSITION_SCORES = {'N': KNIGHT_SCORES, 'B': BISHOP_SCORES, 'Q': QUEEN_SCORES, 'R': ROOK_SCORES,
+                             'wP': WHITE_PAWN_SCORES, 'bP': BLACK_PAWN_SCORES}
     CHECKMATE = 1000
     STALEMATE = 0
 
@@ -118,10 +193,10 @@ class ChessAi:
         return max_score
 
     @staticmethod
-    def find_best_move_negamax_alpha_beta(game_state, valid_moves):
+    def find_best_move_negamax_alpha_beta(game_state, valid_moves, return_queue):
         random.shuffle(valid_moves)
         ChessAi.find_move_negamax_alpha_beta(game_state, valid_moves, ChessAi.DEPTH, -ChessAi.CHECKMATE, ChessAi.CHECKMATE, 1 if game_state.white_to_move else -1)
-        return ChessAi.next_move
+        return_queue.put(ChessAi.next_move)
 
     @staticmethod
     def find_move_negamax_alpha_beta(game_state, valid_moves, depth, alpha, beta, turn_multiplier):
@@ -162,12 +237,22 @@ class ChessAi:
             return ChessAi.STALEMATE
 
         score = 0
-        for row in game_state.board:
-            for square in row:
-                if square[0] == 'w':
-                    score += ChessAi.PIECE_SCORES[square[1]]
-                elif square[0] == 'b':
-                    score -= ChessAi.PIECE_SCORES[square[1]]
+        for row in range(len(game_state.board)):
+            for col in range(len(game_state.board[row])):
+                square = game_state.board[row][col]
+                if square != '--':
+                    # Score it positionally
+                    piece_position_score = 0
+                    if square[1] != 'K':  # No position table for a king
+                        if square[1] == 'P':  # For pawns
+                            piece_position_score = ChessAi.PIECE_POSITION_SCORES[square][row][col]
+                        else:  # For other pieces
+                            piece_position_score = ChessAi.PIECE_POSITION_SCORES[square[1]][row][col]
+
+                    if square[0] == 'w':
+                        score += ChessAi.PIECE_SCORES[square[1]] + piece_position_score * 0.1
+                    elif square[0] == 'b':
+                        score -= ChessAi.PIECE_SCORES[square[1]] + piece_position_score * 0.1
 
         return score
 
