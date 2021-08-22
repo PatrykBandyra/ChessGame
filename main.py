@@ -69,8 +69,7 @@ class Game:
                 pg.draw.rect(self.screen, color, pg.Rect(column * SQ_SIZE, row * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
     def draw_hoovered_square(self):
-        if 0 < self.location[0] < BOARD_WIDTH and 0 < self.location[
-            1] < BOARD_HEIGHT - 1:  # BOARD_HEIGHT-1 because this is the real height (pygame nuances)
+        if 0 < self.location[0] < BOARD_WIDTH and 0 < self.location[1] < BOARD_HEIGHT - 1:  # BOARD_HEIGHT-1 because this is the real height (pygame nuances)
             self.screen.blit(self.hoovered_square, (self.col * SQ_SIZE, self.row * SQ_SIZE))
 
     def highlight_squares(self, valid_moves, square_selected):
