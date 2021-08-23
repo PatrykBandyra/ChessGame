@@ -17,12 +17,11 @@ class MyWidget:
     Base class for my custom widgets.
     """
 
-    def __init__(self):
-        # Set by draw method
-        self.x: int = 0
-        self.y: int = 0
-        self.width: int = 0
-        self.height: int = 0
+    def __init__(self, x: int, y: int, width: int, height: int, ):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
 
     def update_size(self, x: int, y: int, width: int, height: int) -> None:
         """
@@ -64,39 +63,33 @@ class MyButton(MyWidget):
     ANIMATION_SCALE_FACTOR: float = 0.9
     ANIMATION_TIME: int = 300  # Time in milliseconds
 
-    def __init__(self, function: Callable, text: str, text_color: Union[Tuple[int, int, int], pg.Color],
-                 color: Union[Tuple[int, int, int], pg.Color],
-                 font: Tuple[Union[str, None], int]):
+    def __init__(self, x: int, y: int, width: int, height: int, function: Callable, text: str,
+                 text_color: Union[Tuple[int, int, int], pg.Color], color: Union[Tuple[int, int, int], pg.Color],
+                 font: Tuple[Union[str, None], int], outline_color: Union[Tuple[int, int, int], pg.Color] = None,
+                 outline_width: int = 0):
 
-        super().__init__()
+        super().__init__(x, y, width, height)
         self.function = function
         self.text = text
         self.text_color = text_color
         self.color = color
         self.font_name, self.font_size = font
+        self.outline_color = outline_color
+        self.outline_width = outline_width
 
         # Animation after click
         self.was_clicked: bool = False
         self.current_animation_time: int = 0
         self.in_animation: bool = False
 
-    def draw(self, surface: pg.Surface, x: int, y: int, width: int, height: int, time_since_prev_frame: int,
-             outline_color: Union[Tuple[int, int, int], pg.Color] = None, outline_width: int = 0) -> None:
+    def draw(self, surface: pg.Surface, time_since_prev_frame: int) -> None:
         """
         Draws the button on the given surface.
 
         :param surface: screen/surface for button to be drawn onto
-        :param x: top left corner
-        :param y: top left corner (the highest the value the lower it gets on the surface)
-        :param width:
-        :param height:
-        :param outline_color: color of outline in RGB values
-        :param outline_width: width of button outline in pixels
         :param time_since_prev_frame: time in milliseconds (for animation purposes)
         :return: None
         """
-
-        self.update_size(x, y, width, height)
 
         if self.current_animation_time < MyButton.ANIMATION_TIME:
             self.current_animation_time += time_since_prev_frame
@@ -106,7 +99,7 @@ class MyButton(MyWidget):
 
         animation_scale_factor: float = MyButton.ANIMATION_SCALE_FACTOR if self.was_clicked else 1
 
-        text_surface = pg.font.Font(self.font_name, int(self.font_size * animation_scale_factor)) \
+        text_surface = pg.font.SysFont(self.font_name, int(self.font_size * animation_scale_factor)) \
             .render(self.text, True, self.text_color)
 
         if animation_scale_factor <= 1:  # Making button smaller
@@ -124,12 +117,12 @@ class MyButton(MyWidget):
             width: int = int(self.width * animation_scale_factor)
             height: int = int(self.height * animation_scale_factor)
 
-        if outline_color:
-            pg.draw.rect(surface, outline_color,
-                         (int(x - outline_width // 2 * animation_scale_factor),
-                          int(y - outline_width // 2 * animation_scale_factor),
-                          width + int(outline_width * animation_scale_factor),
-                          height + int(outline_width * animation_scale_factor)))
+        if self.outline_color:
+            pg.draw.rect(surface, self.outline_color,
+                         (int(x - self.outline_width // 2 * animation_scale_factor),
+                          int(y - self.outline_width // 2 * animation_scale_factor),
+                          width + int(self.outline_width * animation_scale_factor),
+                          height + int(self.outline_width * animation_scale_factor)))
         pg.draw.rect(surface, self.color, (x, y, width, height))
 
         if self.text != '':
@@ -169,12 +162,11 @@ class MyInputBox(MyWidget):
     DIST_CURSOR_FIELD_TOP = 4
     MAX_LETTER_WIDTH = 20  # In pixels
 
-    def __init__(self, text_color: Union[Tuple[int, int, int], pg.Color],
-                 color_active: Union[Tuple[int, int, int], pg.Color],
-                 color_passive: Union[Tuple[int, int, int], pg.Color], font: Tuple[Union[str, None], int],
-                 outline_width: int, text: str = '', min_width: int = 100, max_width: int = 200, cursor_width: int = 2,
-                 cursor_color: Union[Tuple[int, int, int], pg.Color] = pg.Color('white')):
-        super().__init__()
+    def __init__(self, x: int, y: int, width: int, height: int, text_color: Union[Tuple[int, int, int], pg.Color],
+                 color_active: Union[Tuple[int, int, int], pg.Color], color_passive: Union[Tuple[int, int, int], pg.Color],
+                 font: Tuple[Union[str, None], int], outline_width: int, text: str = '', min_width: int = 100, max_width: int = 200,
+                 cursor_width: int = 2, cursor_color: Union[Tuple[int, int, int], pg.Color] = pg.Color('white')):
+        super().__init__(x, y, width, height)
         self.text = text
         self.visible_text: str = text
         self.text_color = text_color
@@ -192,19 +184,14 @@ class MyInputBox(MyWidget):
         self.show_cursor: bool = True
         self.deleting: bool = False
 
-    def draw(self, surface: pg.Surface, x: int, y: int, width: int, height: int, time_since_prev_frame: int) -> None:
+    def draw(self, surface: pg.Surface, time_since_prev_frame: int) -> None:
         """
         Draws input box with entered text onto the screen.
 
         :param surface:
-        :param x: top left corner
-        :param y: top left corner (the highest the value the lower it gets on the surface)
-        :param width:
-        :param height:
         :param time_since_prev_frame: time in milliseconds (for animation purposes)
         :return: None
         """
-        self.update_size(x, y, width, height)
 
         color = self.color_active if self.active else self.color_passive
         font = pg.font.Font(self.font_name, self.font_size)
@@ -357,26 +344,27 @@ class MyMessage:
         self.is_prepared = True
 
 
-class MyChatBox:
+class MyChatBox(MyWidget):
     PADDING_X: int = 5
     PADDING_Y: int = 5
 
-    def __init__(self, outline_width: int = 2,
+    def __init__(self, x: int, y: int, width: int, height: int, outline_width: int = 2,
                  outline_color: Union[Tuple[int, int, int], pg.Color] = pg.Color('white')):
+        super().__init__(x, y, width, height)
         self.messages: List[MyMessage] = list()
         self.outline_width = outline_width
         self.outline_color = outline_color
 
-    def draw(self, surface: pg.Surface, x: int, y: int, width: int, height: int) -> None:
+    def draw(self, surface: pg.Surface) -> None:
         # Draw outline
-        pg.draw.rect(surface, self.outline_color, (x, y, width, height), self.outline_width)
+        pg.draw.rect(surface, self.outline_color, (self.x, self.y, self.width, self.height), self.outline_width)
 
-        available_height = height - 2 * MyChatBox.PADDING_Y
+        available_height = self.height - 2 * MyChatBox.PADDING_Y
         additional_height = 0
         for message in self.messages:
-            was_drawn, available_height, used_height = message.draw(surface, x + MyChatBox.PADDING_X,
-                                                                          y + MyChatBox.PADDING_Y + additional_height,
-                                                                          available_height)
+            was_drawn, available_height, used_height = message.draw(surface, self.x + MyChatBox.PADDING_X,
+                                                                    self.y + MyChatBox.PADDING_Y + additional_height,
+                                                                    available_height)
             additional_height += used_height
 
             if not was_drawn:
@@ -405,12 +393,14 @@ if __name__ == '__main__':
     clock = pg.time.Clock()
     screen = pg.display.set_mode((800, 800))
 
-    base_font = (None, 32)
-    button = MyButton(change_color, 'Hello', tuple(pg.Color('white')), tuple(pg.Color('red')), base_font)
-    button2 = MyButton(on_add_button_clicked, 'Welcome', tuple(pg.Color('white')), tuple(pg.Color('red')), base_font)
-    input_box = MyInputBox(pg.Color('white'), pg.Color('lightskyblue3'), pg.Color('gray15'), (None, 32), 4)
+    base_font = ('Times New Roman', 32)
+    button = MyButton(10, 10, 100, 30, change_color, 'Hello', tuple(pg.Color('white')), tuple(pg.Color('red')), base_font,
+                      outline_color=(255, 255, 255), outline_width=20)
+    button2 = MyButton(50, 50, 100, 30, on_add_button_clicked, 'Welcome', tuple(pg.Color('white')), tuple(pg.Color('red')), base_font,
+                       outline_color=(255, 255, 255), outline_width=20)
+    input_box = MyInputBox(400, 400, 100, 32, pg.Color('white'), pg.Color('lightskyblue3'), pg.Color('gray15'), (None, 32), 4)
 
-    chat_box = MyChatBox()
+    chat_box = MyChatBox(200, 200, 200, 500)
     msg1 = MyMessage('Hello World', 'Patryk')
     msg1.prepare_message(200)
     chat_box.add_message(msg1)
@@ -466,14 +456,11 @@ if __name__ == '__main__':
 
         # Drawing
         screen.fill((0, 0, 0))
-        button.draw(screen, screen.get_width() // 4, int(screen.get_height() * 1 / 4), int(screen.get_width() * 1 / 4),
-                    int(screen.get_height() * 1 / 32), dt, outline_color=(255, 255, 255), outline_width=20)
-        button2.draw(screen, int(screen.get_width() * 3 / 4), int(screen.get_height() * 3 / 4),
-                     int(screen.get_width() * 1 / 8),
-                     int(screen.get_height() * 1 / 32), dt)
+        button.draw(screen, dt)
+        button2.draw(screen, dt)
 
-        input_box.draw(screen, 200, 600, 140, 32, dt)
-        chat_box.draw(screen, 400, 400, 200, 300)
+        input_box.draw(screen, dt)
+        chat_box.draw(screen)
 
         pg.display.flip()
 
