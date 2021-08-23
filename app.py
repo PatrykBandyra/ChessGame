@@ -8,13 +8,17 @@ from typing_extensions import Literal
 from widgets import MyButton, MyInputBox, MyChatBox, MyMessage
 from threading import Thread
 
+"""
+Main file containing entry point of the application.
+"""
+
 # CONST SECTION --------------------------------------------------------------------------------------------------------
 WINDOW_TITLE: str = 'Chess'
 WINDOW_LOGO_PATH: str = 'resources/logo.png'
-WINDOW_START_POS_X: int = 275
+WINDOW_START_POS_X: int = 375
 WINDOW_START_POS_Y: int = 40
 WINDOW_START_WIDTH: int = 800
-WINDOW_START_HEIGHT: int = 800
+WINDOW_START_HEIGHT: int = 600
 FPS: int = 60
 STANDARD_FONT: str = 'Times New Roman'
 
@@ -33,10 +37,13 @@ class App:
         self.dt: int = 0  # Time since last frame
 
         self.scene: str = 'main_menu'
-        self.scene_drawing: dict[str: Callable] = {'main_menu': self.draw_main_menu}
-        self.scene_events: dict[str: Callable] = {'main_menu': self.check_events_main_menu}
+        self.scene_drawing: dict[str: Callable] = {'main_menu': self.draw_main_menu,
+                                                   'enter_name_menu': self.draw_enter_name_menu}
+        self.scene_events: dict[str: Callable] = {'main_menu': self.check_events_main_menu,
+                                                  'enter_name_menu': self.check_events_enter_name_menu}
         self.scene_widgets: dict[str: List[Union[MyButton, MyInputBox, MyChatBox]]] = {key: [] for key in
                                                                                        self.scene_drawing.keys()}
+        self.scene_assets: dict[str: List] = {key: [] for key in self.scene_drawing.keys()}
         # self.args_for_function_calls: dict[MyButton: []] = dict()
 
     @staticmethod
@@ -72,6 +79,24 @@ class App:
                 if widget.is_over(mouse_pos):
                     widget.animate_after_click()
 
+    def check_events_enter_name_menu(self, event: pg.event.Event, mouse_pos: Tuple[int, int]) -> None:
+        if event.type == pg.MOUSEBUTTONDOWN:
+            for widget in self.scene_widgets[self.scene]:
+                if widget.is_over(mouse_pos):
+                    widget.animate_after_click()
+                else:
+                    if isinstance(widget, MyInputBox):
+                        widget.deactivate()
+
+        if event.type == pg.KEYDOWN:
+            for widget in self.scene_widgets[self.scene]:
+                if isinstance(widget, MyInputBox):
+                    if widget.active:
+                        if event.key == pg.K_BACKSPACE:
+                            widget.remove_letter()
+                        else:
+                            widget.add_letter(event)
+
     # End of functions checking events ---------------------------------------------------------------------------------
 
     def draw(self) -> None:
@@ -93,7 +118,20 @@ class App:
         Draws main menu scene onto the screen.
         """
         self.screen.fill(pg.Color('gray'))
-        self.draw_text('Chess', STANDARD_FONT, 44, pg.Color('black'), 380, 200, align='center')
+        self.draw_text('Chess', STANDARD_FONT, 44, pg.Color('black'), 400, 250, align='center')
+        self.draw_text('by Patryk Bandyra', STANDARD_FONT, 16, pg.Color('white'), 470, 280, align='center')
+        self.screen.blit(self.scene_assets[self.scene][0],
+                         (self.screen.get_width()//2 - self.scene_assets[self.scene][0].get_width()//2, 50))
+
+    def draw_enter_name_menu(self):
+        self.screen.fill(pg.Color('gray'))
+        self.draw_text('Enter your name', STANDARD_FONT, 44, pg.Color('black'), 400, 150, align='center')
+        self.draw_text('Maximum 20 characters', STANDARD_FONT, 16, pg.Color('black'), 100, 230, align='w')
+        chars: int = 0
+        for widget in self.scene_widgets['enter_name_menu']:
+            if isinstance(widget, MyInputBox):
+                chars = widget.char_counter
+        self.draw_text(f'Characters: {chars}', STANDARD_FONT, 16, pg.Color('black'), 620, 320, align='w')
 
     # End of functions drawing specific scenes -------------------------------------------------------------------------
 
@@ -101,25 +139,42 @@ class App:
 
     def create_widgets_main_menu(self) -> None:
         """
-        Creates widgets present in main menu scene.
+        Creates widgets present in main menu scene. Loads needed assets like images.
         """
         font = (STANDARD_FONT, 32)
-        self.scene_widgets[self.scene].append(MyButton(70, 400, 200, 40, self.on_play_online_button_clicked,
+        scene_name = 'main_menu'
+        self.scene_widgets[scene_name].append(MyButton(50, 400, 200, 40, self.on_play_online_button_clicked,
                                                        'PvP via LAN', tuple(pg.Color('white')), tuple(pg.Color('dark gray')),
                                                        font, outline_color=(255, 255, 255), outline_width=20))
-        self.scene_widgets[self.scene].append(MyButton(300, 400, 200, 40, self.on_play_offline_button_clicked,
+        self.scene_widgets[scene_name].append(MyButton(300, 400, 200, 40, self.on_play_offline_button_clicked,
                                                        'PvP Offline', tuple(pg.Color('white')), tuple(pg.Color('dark gray')),
                                                        font, outline_color=(255, 255, 255), outline_width=20))
-        self.scene_widgets[self.scene].append(MyButton(530, 400, 200, 40, self.on_play_ai_button_clicked,
+        self.scene_widgets[scene_name].append(MyButton(550, 400, 200, 40, self.on_play_ai_button_clicked,
                                                        'PvAI', tuple(pg.Color('white')), tuple(pg.Color('dark gray')),
+                                                       font, outline_color=(255, 255, 255), outline_width=20))
+        self.scene_assets[scene_name].append(pg.image.load('resources/logo.png'))
+
+    def create_widgets_enter_name_menu(self) -> None:
+        font = (STANDARD_FONT, 32)
+        scene_name = 'enter_name_menu'  # self.scene shall be changed after creating widgets for efficiency
+        self.scene_widgets[scene_name].append(MyButton(350, 400, 100, 40, self.on_enter_name_clicked,
+                                                       'OK', tuple(pg.Color('white')), tuple(pg.Color('dark gray')),
+                                                       font, outline_color=(255, 255, 255), outline_width=20))
+        self.scene_widgets[scene_name].append(MyInputBox(100, 250, 600, 46, pg.Color('white'),
+                                                         pg.Color('lightskyblue3'), pg.Color('gray15'),
+                                                         (STANDARD_FONT, 32), 4, max_chars=20))
+        self.scene_widgets[scene_name].append(MyButton(660, 520, 100, 40, self.on_return_from_enter_name_clicked,
+                                                       'Return', tuple(pg.Color('white')), tuple(pg.Color('black')),
                                                        font, outline_color=(255, 255, 255), outline_width=20))
 
     # End of functions creating widgets for specific scene -------------------------------------------------------------
 
     # Functions called after button clicks -----------------------------------------------------------------------------
-
+    # Main Menu ********************************************************************************************************
     def on_play_online_button_clicked(self) -> None:
-        pass
+        self.scene_widgets[self.scene].clear()  # Delete widgets of previous menu
+        self.create_widgets_enter_name_menu()
+        self.scene = 'enter_name_menu'
 
     def on_play_offline_button_clicked(self) -> None:
         pass
@@ -127,6 +182,18 @@ class App:
     def on_play_ai_button_clicked(self) -> None:
         pass
 
+    # End of Main Menu *************************************************************************************************
+    # Enter Name Menu **************************************************************************************************
+
+    def on_enter_name_clicked(self) -> None:
+        pass
+
+    def on_return_from_enter_name_clicked(self) -> None:
+        self.scene_widgets[self.scene].clear()
+        self.create_widgets_main_menu()
+        self.scene = 'main_menu'
+
+    # End of Enter Name Menu *******************************************************************************************
     # End of functions called after button clicks ----------------------------------------------------------------------
 
     def check_buttons_readiness_for_function_call(self) -> None:

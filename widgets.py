@@ -164,8 +164,8 @@ class MyInputBox(MyWidget):
 
     def __init__(self, x: int, y: int, width: int, height: int, text_color: Union[Tuple[int, int, int], pg.Color],
                  color_active: Union[Tuple[int, int, int], pg.Color], color_passive: Union[Tuple[int, int, int], pg.Color],
-                 font: Tuple[Union[str, None], int], outline_width: int, text: str = '', min_width: int = 100, max_width: int = 200,
-                 cursor_width: int = 2, cursor_color: Union[Tuple[int, int, int], pg.Color] = pg.Color('white')):
+                 font: Tuple[Union[str, None], int], outline_width: int, text: str = '', cursor_width: int = 2,
+                 cursor_color: Union[Tuple[int, int, int], pg.Color] = pg.Color('white'), max_chars: Union[int, None] = None):
         super().__init__(x, y, width, height)
         self.text = text
         self.visible_text: str = text
@@ -174,15 +174,14 @@ class MyInputBox(MyWidget):
         self.color_passive = color_passive
         self.font_name, self.font_size = font
         self.outline_width = outline_width
-        self.min_width = min_width
-        self.max_width = max_width
         self.cursor_width = cursor_width
         self.cursor_color = cursor_color
+        self.max_chars = max_chars
+        self.char_counter: int = len(self.text)
 
         self.active: bool = False
         self.current_animation_time: int = 0
         self.show_cursor: bool = True
-        self.deleting: bool = False
 
     def draw(self, surface: pg.Surface, time_since_prev_frame: int) -> None:
         """
@@ -194,23 +193,15 @@ class MyInputBox(MyWidget):
         """
 
         color = self.color_active if self.active else self.color_passive
-        font = pg.font.Font(self.font_name, self.font_size)
+        font = pg.font.SysFont(self.font_name, self.font_size)
         visible_text_surface = font.render(self.visible_text, True, self.text_color)
 
-        # Update width to accommodate more letters
         dist = MyInputBox.DIST_TEXT_CURSOR + self.cursor_width + MyInputBox.DIST_CURSOR_FIELD_END
         visible_text_width = visible_text_surface.get_width()
-        self.width = min(max(self.min_width, visible_text_width + dist), self.max_width)
 
-        if self.width == self.max_width:
+        if visible_text_width + dist >= self.width:
             self.visible_text = self.visible_text[1:]
-        elif self.deleting and self.width == self.min_width:
-            try:
-                self.deleting = False
-                num = self.width // MyInputBox.MAX_LETTER_WIDTH
-                self.visible_text = self.text[-num:]
-            except IndexError:
-                pass
+            visible_text_surface = font.render(self.visible_text, True, self.text_color)
 
         pg.draw.rect(surface, color, (self.x, self.y, self.width, self.height), self.outline_width)
         surface.blit(visible_text_surface, (self.x + 5, self.y + 5))
@@ -246,13 +237,15 @@ class MyInputBox(MyWidget):
             self.show_cursor = not self.show_cursor
 
     def add_letter(self, event: pg.event.Event) -> None:
-        self.text += event.unicode
-        self.visible_text += event.unicode
+        if self.char_counter < self.max_chars:
+            self.text += event.unicode
+            self.visible_text += event.unicode
+            self.char_counter = len(self.text)
 
     def remove_letter(self) -> None:
-        self.deleting = True
         self.text = self.text[:-1]
-        self.visible_text = self.visible_text[:-1]
+        self.visible_text = self.text[-len(self.visible_text):]
+        self.char_counter = len(self.text)
 
     def animate_after_click(self) -> None:
         """
