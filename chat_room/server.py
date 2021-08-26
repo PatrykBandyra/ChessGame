@@ -23,17 +23,17 @@ if __name__ == '__main__':
     def handle(client):
         while True:
             try:
-                msg = message = client.recv(1024)
-                if msg.decode('utf-8').startswith('KICK'):
+                message = client.recv(1024)
+                if message.decode('utf-8').startswith('KICK'):
                     if nicknames[clients.index(client)] == 'admin':
-                        name_to_kick = msg.decode('utf-8')[5:]
+                        name_to_kick = message.decode('utf-8')[5:]
                         kick_user(name_to_kick)
                         print(f'{name_to_kick} was kicked!')
                     else:
                         client.send('Command was refused!').encode('utf-8')
-                elif msg.decode('utf-8').startswith('BAN'):
+                elif message.decode('utf-8').startswith('BAN'):
                     if nicknames[clients.index(client)] == 'admin':
-                        name_to_ban = msg.decode('utf-8')[4:]
+                        name_to_ban = message.decode('utf-8')[4:]
                         kick_user(name_to_ban)
                         with open('chat_room/bans.txt', 'a') as f:
                             f.write(f'{name_to_ban}\n')

@@ -50,7 +50,7 @@ class Game:
                     pieces.add(square)
 
         for piece in pieces:
-            self.images[piece] = pg.transform.scale(pg.image.load(f'resources/figures_images/{piece}.png'),
+            self.images[piece] = pg.transform.scale(pg.image.load(f'../resources/figures_images/{piece}.png'),
                                                     (SQ_SIZE, SQ_SIZE))
 
     def draw_game_state(self, valid_moves, square_selected, move_log_font, display_hoovering=True):

@@ -1,11 +1,14 @@
 import sys
 import os
+import threading
+
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
 import pygame as pg
 from collections.abc import Callable
 from typing import Tuple, Union, List
 from typing_extensions import Literal
-from widgets import MyButton, MyInputBox, MyChatBox, MyMessage
+from widgets import MyButton, MyInputBox, MyChatBox, MyMessage, MyLobbyBox, MyPlayerWidget
+from player import Player
 from threading import Thread
 
 """
@@ -51,6 +54,10 @@ class App:
         self.banner.fill((30, 30, 30))
         self.do_render_banner: bool = False
         self.banner_text: str = ''
+
+        self.chat_box: Union[MyChatBox, None] = None  # If there is a chat box in a scene - assign reference
+        self.player: Union[Player, None] = None   # Player instance will be created while joining lobby
+        self.lobby_box: Union[MyLobbyBox, None] = None  # If there is a lobby box in a scene - assign reference
 
     @staticmethod
     def quit() -> None:
@@ -110,8 +117,39 @@ class App:
                             widget.add_letter(event)
 
     def check_events_lobby_menu(self, event: pg.event.Event, mouse_pos: Tuple[int, int]) -> None:
-        # Same events like in enter name menu
-        self.check_events_enter_name_menu(event, mouse_pos)
+        if event.type == pg.MOUSEBUTTONDOWN:
+            for widget in self.scene_widgets[self.scene]:
+                if isinstance(widget, MyLobbyBox):
+                    player_widget = widget.if_over_return_player_widget(mouse_pos)
+                    if player_widget is not None:
+                        button = player_widget.if_over_return_button(mouse_pos)
+                        if button is not None:
+                            button.animate_after_click()
+                else:
+                    if not isinstance(widget, MyChatBox):
+                        if widget.is_over(mouse_pos):
+                            widget.animate_after_click()
+                        else:
+                            if isinstance(widget, MyInputBox):
+                                widget.deactivate()
+
+        if event.type == pg.KEYDOWN:
+            for widget in self.scene_widgets[self.scene]:
+                if isinstance(widget, MyInputBox):
+                    if widget.active:
+                        if event.key == pg.K_BACKSPACE:
+                            widget.remove_letter()
+                        else:
+                            widget.add_letter(event)
+
+        self.check_server_events()
+
+    def check_server_events(self):
+        if not self.player.received_message_queue.empty():
+            message = self.player.received_message_queue.get()
+            message_widget = MyMessage(message['text'], message['author'])
+            message_widget.prepare_message(350)
+            self.chat_box.add_message(message_widget)
 
     # End of functions checking events ---------------------------------------------------------------------------------
 
@@ -154,7 +192,8 @@ class App:
     def draw_lobby_menu(self) -> None:
         self.screen.fill(pg.Color('gray'))
         self.draw_text('Lobby Chat', STANDARD_FONT, 14, pg.Color('black'), 200, 10, align='center')
-        self.draw_text('Lobby Players', STANDARD_FONT, 14, pg.Color('black'), 600, 10, align='center')
+        self.draw_text(f'Lobby Players {len(self.lobby_box.player_widgets) if self.lobby_box is not None else 0}/6',
+                       STANDARD_FONT, 14, pg.Color('black'), 600, 10, align='center')
 
     # End of functions drawing specific scenes -------------------------------------------------------------------------
 
@@ -196,7 +235,8 @@ class App:
 
     def create_widgets_lobby_menu(self) -> None:
         scene_name = 'lobby_menu'
-        self.scene_widgets[scene_name].append(MyChatBox(10, 20, 400, 500))
+        self.chat_box = MyChatBox(10, 20, 400, 500)
+        self.scene_widgets[scene_name].append(self.chat_box)
         self.scene_widgets[scene_name].append(MyInputBox(10, 530, 330, 36, pg.Color('white'),
                                                          pg.Color('lightskyblue3'), pg.Color('gray15'),
                                                          (STANDARD_FONT, 24), 4, max_chars=80))
@@ -212,6 +252,17 @@ class App:
                                                        'Return', tuple(pg.Color('white')), tuple(pg.Color('black')),
                                                        (STANDARD_FONT, 32), outline_color=pg.Color('white'),
                                                        outline_width=20))
+        self.lobby_box = MyLobbyBox(420, 20, 370, 500)
+        self.scene_widgets[scene_name].append(self.lobby_box)
+
+        # self.player = Player('Patryk')
+        # self.lobby_box.add_player_widget(self.player, self.on_accept_button_clicked, self.on_invite_button_clicked)
+        # self.player = Player('Ala')
+        # self.lobby_box.add_player_widget(self.player, self.on_accept_button_clicked, self.on_invite_button_clicked)
+        # self.player = Player('Patryk')
+        # self.lobby_box.add_player_widget(self.player, self.on_accept_button_clicked, self.on_invite_button_clicked)
+        # self.player = Player('Ala')
+        # self.lobby_box.add_player_widget(self.player, self.on_accept_button_clicked, self.on_invite_button_clicked)
 
     # End of functions creating widgets for specific scene -------------------------------------------------------------
 
@@ -240,9 +291,33 @@ class App:
         self.banner_text = 'Connecting...'
         self.scene_events[self.scene] = self.check_events_disabled
 
+        name = ''
+        for widget in self.scene_widgets[self.scene]:
+            if isinstance(widget, MyInputBox):
+                name = widget.text.strip()
+
+        lobby_connection_thread = threading.Thread(target=self.connect_to_lobby, args=[name])
+        lobby_connection_thread.start()
+
         # self.scene_widgets[self.scene].clear()
         # self.create_widgets_lobby_menu()
         # self.scene = 'lobby_menu'
+
+    def connect_to_lobby(self, name: str):
+        self.player = Player(name)
+        self.scene_events[self.scene] = self.check_events_enter_name_menu
+        self.do_render_banner = False
+        if self.player.connected:
+            self.scene_widgets[self.scene].clear()
+            self.create_widgets_lobby_menu()
+            self.scene = 'lobby_menu'
+            receive_thread = threading.Thread(target=self.player.receive)
+            send_thread = threading.Thread(target=self.player.send)
+            receive_thread.start()
+            send_thread.start()
+        else:
+            self.player = None
+            # TODO: info about the cause
 
     def on_return_from_enter_name_clicked(self) -> None:
         self.scene_widgets[self.scene].clear()
@@ -261,13 +336,28 @@ class App:
     # Lobby Menu *******************************************************************************************************
 
     def on_send_message_button_clicked(self) -> None:
-        pass
+        message = ''
+        for widget in self.scene_widgets[self.scene]:
+            if isinstance(widget, MyInputBox):
+                message = widget.text
+        if message != '':
+            self.player.message_to_send = message
 
     def on_return_from_lobby_menu_clicked(self) -> None:
         # TODO: Close all connections !!!
+        self.player.stop_thread = True
+        self.player.connected = False
+        self.player.client.close()
+        self.player = None
         self.scene_widgets[self.scene].clear()
         self.create_widgets_enter_name_menu()
         self.scene = 'enter_name_menu'
+
+    def on_accept_button_clicked(self) -> None:
+        pass
+
+    def on_invite_button_clicked(self) -> None:
+        pass
 
     # End of Lobby Menu
     # End of functions called after button clicks ----------------------------------------------------------------------
@@ -281,6 +371,16 @@ class App:
             if isinstance(widget, MyButton):
                 if not widget.in_animation and widget.was_clicked:
                     thread = Thread(target=widget.call_function([]))
+                    thread.start()
+
+        if self.lobby_box is not None:
+            for widget in self.lobby_box.player_widgets:
+                if not widget.invite_button.in_animation and widget.invite_button.was_clicked:
+                    thread = Thread(target=widget.invite_button.call_function([]))
+                    thread.start()
+
+                elif not widget.accept_button.in_animation and widget.accept_button.was_clicked:
+                    thread = Thread(target=widget.accept_button.call_function([]))
                     thread.start()
 
     # Helping functions ------------------------------------------------------------------------------------------------

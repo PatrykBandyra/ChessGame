@@ -6,6 +6,10 @@ from collections.abc import Callable
 from typing import Tuple, Union, List
 import pygame as pg
 from threading import Thread
+from player import Player
+
+
+STANDARD_FONT = 'New York Times'
 
 """
 This file contains my custom widgets for PyGame application.
@@ -17,7 +21,7 @@ class MyWidget:
     Base class for my custom widgets.
     """
 
-    def __init__(self, x: int, y: int, width: int, height: int, ):
+    def __init__(self, x: int, y: int, width: int, height: int):
         self.x = x
         self.y = y
         self.width = width
@@ -66,7 +70,7 @@ class MyButton(MyWidget):
     def __init__(self, x: int, y: int, width: int, height: int, function: Callable, text: str,
                  text_color: Union[Tuple[int, int, int], pg.Color], color: Union[Tuple[int, int, int], pg.Color],
                  font: Tuple[Union[str, None], int], outline_color: Union[Tuple[int, int, int], pg.Color] = None,
-                 outline_width: int = 0):
+                 outline_width: int = 0, is_active: bool = True):
 
         super().__init__(x, y, width, height)
         self.function = function
@@ -76,6 +80,7 @@ class MyButton(MyWidget):
         self.font_name, self.font_size = font
         self.outline_color = outline_color
         self.outline_width = outline_width
+        self.is_active = is_active
 
         # Animation after click
         self.was_clicked: bool = False
@@ -135,11 +140,12 @@ class MyButton(MyWidget):
 
         :return: None
         """
-        if self.was_clicked:
-            self.was_clicked = False
-            self.current_animation_time = 0
-        self.was_clicked = True
-        self.in_animation = True
+        if self.is_active:
+            if self.was_clicked:
+                self.was_clicked = False
+                self.current_animation_time = 0
+            self.was_clicked = True
+            self.in_animation = True
 
     def call_function(self, args) -> None:
         """
@@ -147,8 +153,9 @@ class MyButton(MyWidget):
 
         :return: None
         """
-        self.was_clicked = False
-        self.function(*args)
+        if self.is_active:
+            self.was_clicked = False
+            self.function(*args)
 
 
 class MyInputBox(MyWidget):
@@ -163,9 +170,11 @@ class MyInputBox(MyWidget):
     MAX_LETTER_WIDTH = 20  # In pixels
 
     def __init__(self, x: int, y: int, width: int, height: int, text_color: Union[Tuple[int, int, int], pg.Color],
-                 color_active: Union[Tuple[int, int, int], pg.Color], color_passive: Union[Tuple[int, int, int], pg.Color],
+                 color_active: Union[Tuple[int, int, int], pg.Color],
+                 color_passive: Union[Tuple[int, int, int], pg.Color],
                  font: Tuple[Union[str, None], int], outline_width: int, text: str = '', cursor_width: int = 2,
-                 cursor_color: Union[Tuple[int, int, int], pg.Color] = pg.Color('white'), max_chars: Union[int, None] = None):
+                 cursor_color: Union[Tuple[int, int, int], pg.Color] = pg.Color('white'),
+                 max_chars: Union[int, None] = None):
         super().__init__(x, y, width, height)
         self.text = text
         self.visible_text: str = text
@@ -368,6 +377,80 @@ class MyChatBox(MyWidget):
         self.messages.append(message)
 
 
+class MyPlayerWidget(MyWidget):
+    def __init__(self, x: int, y: int, width: int, height: int, player: Player, accept_button_function: Callable,
+                 invite_button_function: Callable, outline_color: Union[Tuple[int, int, int], pg.Color],
+                 outline_width: int, font_name: str = STANDARD_FONT):
+        super().__init__(x, y, width, height)
+        self.outline_color = outline_color
+        self.outline_width = outline_width
+        self.player = player
+        self.player_name_surface: pg.Surface = pg.font.SysFont(font_name, 22).render(self.player.name, True,
+                                                                                     pg.Color('black'))
+        self.accept_button: MyButton = MyButton(x + 10, y + 35, 160, 20, accept_button_function, 'Accept',
+                                                pg.Color('black'), pg.Color('gray'), (STANDARD_FONT, 16),
+                                                outline_color=pg.Color('black'), outline_width=4, is_active=False)
+        self.invite_button: MyButton = MyButton(x + 10 + 160 + 20, y + 35, 159, 19, invite_button_function, 'Invite',
+                                                pg.Color('black'), pg.Color('light blue'), (STANDARD_FONT, 16),
+                                                outline_color=pg.Color('black'), outline_width=4)
+
+    def if_over_return_button(self, pos: Tuple[int, int]) -> Union[MyButton, None]:
+        if self.invite_button.is_over(pos):
+            return self.invite_button
+        elif self.accept_button.is_over(pos):
+            return self.accept_button
+        else:
+            return None
+
+    def draw(self, surface: pg.Surface, time_since_prev_frame: int) -> None:
+        pg.draw.rect(surface, self.outline_color, (self.x, self.y, self.width, self.height), self.outline_width)
+        surface.blit(self.player_name_surface, (self.x + 10, self.y + 5))
+        self.accept_button.draw(surface, time_since_prev_frame)
+        self.invite_button.draw(surface, time_since_prev_frame)
+
+
+class MyLobbyBox(MyWidget):
+    PADDING_X: int = 5
+    PADDING_Y: int = 5
+
+    def __init__(self, x: int, y: int, width: int, height: int, outline_width: int = 2,
+                 outline_color: Union[Tuple[int, int, int], pg.Color] = pg.Color('white'), max_player_widgets: int = 6):
+        super().__init__(x, y, width, height)
+        self.player_widgets: List[MyPlayerWidget] = list()
+        self.outline_width = outline_width
+        self.outline_color = outline_color
+        self.max_player_widgets = max_player_widgets
+
+        self.additional_height: int = 0
+
+    def if_over_return_player_widget(self, pos: Tuple[int, int]) -> Union[MyPlayerWidget, None]:
+        if pg.Rect(self.x, self.y, self.width, self.height).collidepoint(pos[0], pos[1]):
+            for player_widget in self.player_widgets:
+                if pg.Rect(player_widget.x, player_widget.y, player_widget.width, player_widget.height).collidepoint(pos[0], pos[1]):
+                    return player_widget
+        return None
+
+    def draw(self, surface: pg.Surface, time_since_prev_frame: int) -> None:
+        # Draw outline
+        pg.draw.rect(surface, self.outline_color, (self.x, self.y, self.width, self.height), self.outline_width)
+
+        for player_widget in self.player_widgets:
+            player_widget.draw(surface, time_since_prev_frame)
+
+    def add_player_widget(self, player: Player, accept_button_function: Callable,
+                          invite_button_function: Callable) -> None:
+        length = len(self.player_widgets)
+        if length <= self.max_player_widgets:
+            width = 360
+            height = 60
+            player_widget = MyPlayerWidget(self.x+MyLobbyBox.PADDING_X,
+                                           self.y+self.additional_height+MyLobbyBox.PADDING_Y*length, width,
+                                           height, player, accept_button_function, invite_button_function,
+                                           pg.Color('white'), 2, STANDARD_FONT)
+            self.player_widgets.append(player_widget)
+            self.additional_height += height
+
+
 def on_add_button_clicked(chat_box: MyChatBox, input_box: MyInputBox):
     message = MyMessage(input_box.text, 'Ja')
     message.prepare_message(200)
@@ -387,11 +470,14 @@ if __name__ == '__main__':
     screen = pg.display.set_mode((800, 800))
 
     base_font = ('Times New Roman', 32)
-    button = MyButton(10, 10, 100, 30, change_color, 'Hello', tuple(pg.Color('white')), tuple(pg.Color('red')), base_font,
+    button = MyButton(10, 10, 100, 30, change_color, 'Hello', tuple(pg.Color('white')), tuple(pg.Color('red')),
+                      base_font,
                       outline_color=(255, 255, 255), outline_width=20)
-    button2 = MyButton(50, 50, 100, 30, on_add_button_clicked, 'Welcome', tuple(pg.Color('white')), tuple(pg.Color('red')), base_font,
+    button2 = MyButton(50, 50, 100, 30, on_add_button_clicked, 'Welcome', tuple(pg.Color('white')),
+                       tuple(pg.Color('red')), base_font,
                        outline_color=(255, 255, 255), outline_width=20)
-    input_box = MyInputBox(400, 400, 100, 32, pg.Color('white'), pg.Color('lightskyblue3'), pg.Color('gray15'), (None, 32), 4)
+    input_box = MyInputBox(400, 400, 100, 32, pg.Color('white'), pg.Color('lightskyblue3'), pg.Color('gray15'),
+                           (None, 32), 4)
 
     chat_box = MyChatBox(200, 200, 200, 500)
     msg1 = MyMessage('Hello World', 'Patryk')
