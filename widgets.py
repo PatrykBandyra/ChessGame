@@ -378,21 +378,30 @@ class MyChatBox(MyWidget):
 
 
 class MyPlayerWidget(MyWidget):
-    def __init__(self, x: int, y: int, width: int, height: int, player: Player, accept_button_function: Callable,
+    def __init__(self, x: int, y: int, width: int, height: int, name: str, accept_button_function: Callable,
                  invite_button_function: Callable, outline_color: Union[Tuple[int, int, int], pg.Color],
-                 outline_width: int, font_name: str = STANDARD_FONT):
+                 outline_width: int, font_name: str = STANDARD_FONT, add_buttons: bool = True):
         super().__init__(x, y, width, height)
         self.outline_color = outline_color
         self.outline_width = outline_width
-        self.player = player
-        self.player_name_surface: pg.Surface = pg.font.SysFont(font_name, 22).render(self.player.name, True,
+        self.name = name
+        self.player_name_surface: pg.Surface = pg.font.SysFont(font_name, 22).render(self.name, True,
                                                                                      pg.Color('black'))
-        self.accept_button: MyButton = MyButton(x + 10, y + 35, 160, 20, accept_button_function, 'Accept',
-                                                pg.Color('black'), pg.Color('gray'), (STANDARD_FONT, 16),
-                                                outline_color=pg.Color('black'), outline_width=4, is_active=False)
-        self.invite_button: MyButton = MyButton(x + 10 + 160 + 20, y + 35, 159, 19, invite_button_function, 'Invite',
-                                                pg.Color('black'), pg.Color('light blue'), (STANDARD_FONT, 16),
-                                                outline_color=pg.Color('black'), outline_width=4)
+        if add_buttons:
+            self.accept_button: MyButton = MyButton(x + 10, y + 35, 160, 20, accept_button_function, 'Accept',
+                                                    pg.Color('black'), pg.Color('gray'), (STANDARD_FONT, 16),
+                                                    outline_color=pg.Color('black'), outline_width=4, is_active=False)
+            self.invite_button: MyButton = MyButton(x + 10 + 160 + 20, y + 35, 159, 19, invite_button_function, 'Invite',
+                                                    pg.Color('black'), pg.Color('light blue'), (STANDARD_FONT, 16),
+                                                    outline_color=pg.Color('black'), outline_width=4)
+        else:
+            self.accept_button: MyButton = MyButton(x + 10, y + 35, 160, 20, accept_button_function, 'Accept',
+                                                    pg.Color('black'), pg.Color('gray'), (STANDARD_FONT, 16),
+                                                    outline_color=pg.Color('black'), outline_width=4, is_active=False)
+            self.invite_button: MyButton = MyButton(x + 10 + 160 + 20, y + 35, 159, 19, invite_button_function,
+                                                    'Invite',
+                                                    pg.Color('black'), pg.Color('gray'), (STANDARD_FONT, 16),
+                                                    outline_color=pg.Color('black'), outline_width=4, is_active=False)
 
     def if_over_return_button(self, pos: Tuple[int, int]) -> Union[MyButton, None]:
         if self.invite_button.is_over(pos):
@@ -420,7 +429,7 @@ class MyLobbyBox(MyWidget):
         self.outline_width = outline_width
         self.outline_color = outline_color
         self.max_player_widgets = max_player_widgets
-
+        self.player_names: List[str] = list()
         self.additional_height: int = 0
 
     def if_over_return_player_widget(self, pos: Tuple[int, int]) -> Union[MyPlayerWidget, None]:
@@ -437,18 +446,26 @@ class MyLobbyBox(MyWidget):
         for player_widget in self.player_widgets:
             player_widget.draw(surface, time_since_prev_frame)
 
-    def add_player_widget(self, player: Player, accept_button_function: Callable,
-                          invite_button_function: Callable) -> None:
+    def add_player_widget(self, name: str, accept_button_function: Callable,
+                          invite_button_function: Callable, add_buttons: bool = True) -> None:
         length = len(self.player_widgets)
         if length <= self.max_player_widgets:
             width = 360
             height = 60
             player_widget = MyPlayerWidget(self.x+MyLobbyBox.PADDING_X,
                                            self.y+self.additional_height+MyLobbyBox.PADDING_Y*length, width,
-                                           height, player, accept_button_function, invite_button_function,
-                                           pg.Color('white'), 2, STANDARD_FONT)
+                                           height, name, accept_button_function, invite_button_function,
+                                           pg.Color('white'), 2, STANDARD_FONT, add_buttons=add_buttons)
             self.player_widgets.append(player_widget)
             self.additional_height += height
+            self.player_names.append(name)
+
+    def remove_player_widget(self, name: str) -> None:
+        if name in self.player_names:
+            self.player_names.remove(name)
+            for player_widget in self.player_widgets:
+                if player_widget.name == name:
+                    self.player_widgets.remove(player_widget)
 
 
 def on_add_button_clicked(chat_box: MyChatBox, input_box: MyInputBox):

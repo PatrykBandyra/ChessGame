@@ -5,11 +5,12 @@ import threading
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
 import pygame as pg
 from collections.abc import Callable
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Iterable
 from typing_extensions import Literal
 from widgets import MyButton, MyInputBox, MyChatBox, MyMessage, MyLobbyBox, MyPlayerWidget
 from player import Player
 from threading import Thread
+from collections import Counter
 
 """
 Main file containing entry point of the application. Responsible for GUI functionalities.
@@ -22,7 +23,7 @@ WINDOW_START_POS_X: int = 375
 WINDOW_START_POS_Y: int = 40
 WINDOW_START_WIDTH: int = 800
 WINDOW_START_HEIGHT: int = 600
-FPS: int = 60
+FPS: int = 30
 STANDARD_FONT: str = 'Times New Roman'
 
 # END CONST SECTION ----------------------------------------------------------------------------------------------------
@@ -54,6 +55,7 @@ class App:
         self.banner.fill((30, 30, 30))
         self.do_render_banner: bool = False
         self.banner_text: str = ''
+        self.display_error_info: bool = False
 
         self.chat_box: Union[MyChatBox, None] = None  # If there is a chat box in a scene - assign reference
         self.player: Union[Player, None] = None   # Player instance will be created while joining lobby
@@ -151,6 +153,26 @@ class App:
             message_widget.prepare_message(350)
             self.chat_box.add_message(message_widget)
 
+        # Lobby Players
+        if not App.compare_two_iterables(self.player.lobby_names, self.lobby_box.player_names):
+            if len(self.player.lobby_names) > len(self.lobby_box.player_names):  # Player has entered the lobby
+                for name in self.player.lobby_names:
+                    if name not in self.lobby_box.player_names:
+                        if name == self.player.name:
+                            self.lobby_box.add_player_widget(name, self.on_accept_button_clicked, self.on_invite_button_clicked, add_buttons=False)
+                        else:
+                            self.lobby_box.add_player_widget(name, self.on_accept_button_clicked, self.on_invite_button_clicked)
+            else:  # Player has quited
+                for name in self.lobby_box.player_names:
+                    if name not in self.player.lobby_names:
+                        self.lobby_box.remove_player_widget(name)
+
+        # Connection error in lobby
+        if not self.player.connected:
+            # Close lobby
+            self.display_error_info = True
+            self.on_return_from_lobby_menu_clicked()
+
     # End of functions checking events ---------------------------------------------------------------------------------
 
     def draw(self) -> None:
@@ -188,6 +210,8 @@ class App:
             if isinstance(widget, MyInputBox):
                 chars = widget.char_counter
         self.draw_text(f'Characters: {chars}', STANDARD_FONT, 16, pg.Color('black'), 620, 320, align='w')
+        if self.display_error_info:
+            self.draw_text('Connection error', STANDARD_FONT, 22, pg.Color('red'), 400, 100, align='center')
 
     def draw_lobby_menu(self) -> None:
         self.screen.fill(pg.Color('gray'))
@@ -255,15 +279,6 @@ class App:
         self.lobby_box = MyLobbyBox(420, 20, 370, 500)
         self.scene_widgets[scene_name].append(self.lobby_box)
 
-        # self.player = Player('Patryk')
-        # self.lobby_box.add_player_widget(self.player, self.on_accept_button_clicked, self.on_invite_button_clicked)
-        # self.player = Player('Ala')
-        # self.lobby_box.add_player_widget(self.player, self.on_accept_button_clicked, self.on_invite_button_clicked)
-        # self.player = Player('Patryk')
-        # self.lobby_box.add_player_widget(self.player, self.on_accept_button_clicked, self.on_invite_button_clicked)
-        # self.player = Player('Ala')
-        # self.lobby_box.add_player_widget(self.player, self.on_accept_button_clicked, self.on_invite_button_clicked)
-
     # End of functions creating widgets for specific scene -------------------------------------------------------------
 
     # Functions called after button clicks -----------------------------------------------------------------------------
@@ -283,7 +298,6 @@ class App:
     # Enter Name Menu **************************************************************************************************
 
     def on_enter_name_clicked(self) -> None:
-        # TODO: ...
         # 1. Start new thread to connect to the server
         # 2. Meanwhile display banner - "Connecting to server..."
 
@@ -299,15 +313,12 @@ class App:
         lobby_connection_thread = threading.Thread(target=self.connect_to_lobby, args=[name])
         lobby_connection_thread.start()
 
-        # self.scene_widgets[self.scene].clear()
-        # self.create_widgets_lobby_menu()
-        # self.scene = 'lobby_menu'
-
     def connect_to_lobby(self, name: str):
         self.player = Player(name)
         self.scene_events[self.scene] = self.check_events_enter_name_menu
         self.do_render_banner = False
         if self.player.connected:
+            self.display_error_info = False
             self.scene_widgets[self.scene].clear()
             self.create_widgets_lobby_menu()
             self.scene = 'lobby_menu'
@@ -317,9 +328,10 @@ class App:
             send_thread.start()
         else:
             self.player = None
-            # TODO: info about the cause
+            self.display_error_info = True
 
     def on_return_from_enter_name_clicked(self) -> None:
+        self.display_error_info = False
         self.scene_widgets[self.scene].clear()
         self.create_widgets_main_menu()
         self.scene = 'main_menu'
@@ -344,7 +356,6 @@ class App:
             self.player.message_to_send = message
 
     def on_return_from_lobby_menu_clicked(self) -> None:
-        # TODO: Close all connections !!!
         self.player.stop_thread = True
         self.player.connected = False
         self.player.client.close()
@@ -427,6 +438,10 @@ class App:
         self.banner.fill((30, 30, 30))
         self.screen.blit(self.banner, (0, 0), special_flags=pg.BLEND_MULT)
         self.draw_text(self.banner_text, STANDARD_FONT, 44, pg.Color('red'), 400, 300, align='center')
+
+    @staticmethod
+    def compare_two_iterables(one: Iterable, two: Iterable):
+        return Counter(one) == Counter(two)
 
     # End of helping functions -----------------------------------------------------------------------------------------
 
