@@ -447,15 +447,16 @@ class MyLobbyBox(MyWidget):
             player_widget.draw(surface, time_since_prev_frame)
 
     def add_player_widget(self, name: str, accept_button_function: Callable,
-                          invite_button_function: Callable, add_buttons: bool = True) -> None:
-        length = len(self.player_widgets)
+                          invite_button_function: Callable, add_buttons: bool = True, my_player: bool = False) -> None:
+        length = len(self.player_widgets)+1 if len(self.player_widgets) > 0 else 1
         if length <= self.max_player_widgets:
             width = 360
             height = 60
+            color = pg.Color('gold') if my_player else pg.Color('white')
             player_widget = MyPlayerWidget(self.x+MyLobbyBox.PADDING_X,
                                            self.y+self.additional_height+MyLobbyBox.PADDING_Y*length, width,
                                            height, name, accept_button_function, invite_button_function,
-                                           pg.Color('white'), 2, STANDARD_FONT, add_buttons=add_buttons)
+                                           color, 2, STANDARD_FONT, add_buttons=add_buttons)
             self.player_widgets.append(player_widget)
             self.additional_height += height
             self.player_names.append(name)
@@ -463,9 +464,18 @@ class MyLobbyBox(MyWidget):
     def remove_player_widget(self, name: str) -> None:
         if name in self.player_names:
             self.player_names.remove(name)
-            for player_widget in self.player_widgets:
+            for index, player_widget in enumerate(self.player_widgets):
                 if player_widget.name == name:
+                    height = player_widget.height
+                    self.additional_height -= height
+                    for i in range(index, len(self.player_widgets)):
+                        pw = self.player_widgets[i]
+                        pw.y -= (height + MyLobbyBox.PADDING_Y)
+                        pw.accept_button.y -= (height + MyLobbyBox.PADDING_Y)
+                        pw.invite_button.y -= (height + MyLobbyBox.PADDING_Y)
+
                     self.player_widgets.remove(player_widget)
+                    break
 
 
 def on_add_button_clicked(chat_box: MyChatBox, input_box: MyInputBox):

@@ -15,6 +15,8 @@ class Player:
         self.message_to_send: str = ''
         self.move_queue: Queue = Queue()
         self.connected: bool = False
+        self.lobby_full: bool = False
+        self.name_in_use: bool = False
         try:
             self.client.connect((HOST, PORT))
             message = self.receive_object_message()
@@ -26,7 +28,11 @@ class Player:
                     if message is not None:
                         message_header = list(message['data'].keys())[0]
                         if message_header != 'OK':
+                            self.name_in_use = True
                             raise Exception('Name already in use in a lobby!')
+                elif message_header == 'NO_SPACE':
+                    self.lobby_full = True
+                    raise Exception('Lobby is full!')
                 else:
                     raise Exception('Received package with wrong message header!')
             else:

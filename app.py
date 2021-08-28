@@ -56,6 +56,8 @@ class App:
         self.do_render_banner: bool = False
         self.banner_text: str = ''
         self.display_error_info: bool = False
+        self.lobby_full: bool = False
+        self.name_in_use: bool = False
 
         self.chat_box: Union[MyChatBox, None] = None  # If there is a chat box in a scene - assign reference
         self.player: Union[Player, None] = None   # Player instance will be created while joining lobby
@@ -82,6 +84,7 @@ class App:
             mouse_pos = pg.mouse.get_pos()
 
             if event.type == pg.QUIT:
+                self.close_connections()
                 App.quit()
 
             self.scene_events[self.scene](event, mouse_pos)
@@ -159,7 +162,7 @@ class App:
                 for name in self.player.lobby_names:
                     if name not in self.lobby_box.player_names:
                         if name == self.player.name:
-                            self.lobby_box.add_player_widget(name, self.on_accept_button_clicked, self.on_invite_button_clicked, add_buttons=False)
+                            self.lobby_box.add_player_widget(name, self.on_accept_button_clicked, self.on_invite_button_clicked, add_buttons=False, my_player=True)
                         else:
                             self.lobby_box.add_player_widget(name, self.on_accept_button_clicked, self.on_invite_button_clicked)
             else:  # Player has quited
@@ -212,6 +215,10 @@ class App:
         self.draw_text(f'Characters: {chars}', STANDARD_FONT, 16, pg.Color('black'), 620, 320, align='w')
         if self.display_error_info:
             self.draw_text('Connection error', STANDARD_FONT, 22, pg.Color('red'), 400, 100, align='center')
+        elif self.lobby_full:
+            self.draw_text('Lobby is full', STANDARD_FONT, 22, pg.Color('red'), 400, 100, align='center')
+        elif self.name_in_use:
+            self.draw_text('Name already in use in the lobby - choose other', STANDARD_FONT, 22, pg.Color('red'), 400, 100, align='center')
 
     def draw_lobby_menu(self) -> None:
         self.screen.fill(pg.Color('gray'))
@@ -301,6 +308,10 @@ class App:
         # 1. Start new thread to connect to the server
         # 2. Meanwhile display banner - "Connecting to server..."
 
+        self.lobby_full = False
+        self.display_error_info = False
+        self.name_in_use = False
+
         self.do_render_banner = True
         self.banner_text = 'Connecting...'
         self.scene_events[self.scene] = self.check_events_disabled
@@ -319,6 +330,7 @@ class App:
         self.do_render_banner = False
         if self.player.connected:
             self.display_error_info = False
+            self.lobby_full = False
             self.scene_widgets[self.scene].clear()
             self.create_widgets_lobby_menu()
             self.scene = 'lobby_menu'
@@ -327,11 +339,18 @@ class App:
             receive_thread.start()
             send_thread.start()
         else:
+            if self.player.lobby_full:
+                self.lobby_full = True
+            elif self.player.name_in_use:
+                self.name_in_use = True
+            else:
+                self.display_error_info = True
             self.player = None
-            self.display_error_info = True
 
     def on_return_from_enter_name_clicked(self) -> None:
         self.display_error_info = False
+        self.lobby_full = False
+        self.name_in_use = False
         self.scene_widgets[self.scene].clear()
         self.create_widgets_main_menu()
         self.scene = 'main_menu'
@@ -356,10 +375,7 @@ class App:
             self.player.message_to_send = message
 
     def on_return_from_lobby_menu_clicked(self) -> None:
-        self.player.stop_thread = True
-        self.player.connected = False
-        self.player.client.close()
-        self.player = None
+        self.close_connections()
         self.scene_widgets[self.scene].clear()
         self.create_widgets_enter_name_menu()
         self.scene = 'enter_name_menu'
@@ -442,6 +458,13 @@ class App:
     @staticmethod
     def compare_two_iterables(one: Iterable, two: Iterable):
         return Counter(one) == Counter(two)
+
+    def close_connections(self):
+        if self.player is not None:
+            self.player.stop_thread = True
+            self.player.connected = False
+            self.player.client.close()
+            self.player = None
 
     # End of helping functions -----------------------------------------------------------------------------------------
 

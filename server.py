@@ -6,6 +6,7 @@ import pickle
 HOST = '192.168.0.241'
 PORT = 1234
 HEADER_LENGTH = 10
+MAX_LOBBY_SIZE = 6
 
 
 class Server:
@@ -64,26 +65,29 @@ class Server:
             print(f'Connected with {address}')
             nickname = None
             try:
-                Server.send_object_message(client_socket, {'NICK': ''})
-                message = Server.receive_object_message(client_socket)
-                if message is not None:
-                    message_header = list(message['data'].keys())[0]
-                    if message_header == 'NICK':
-                        nickname = message['data'][message_header]
-                        if nickname in [client[1] for client in self.clients]:
-                            self.send_object_message(client_socket, {'NICK_IN_USE': ''})
+                if len(self.clients) >= MAX_LOBBY_SIZE:
+                    Server.send_object_message(client_socket, {'NO_SPACE': ''})
+                else:
+                    Server.send_object_message(client_socket, {'NICK': ''})
+                    message = Server.receive_object_message(client_socket)
+                    if message is not None:
+                        message_header = list(message['data'].keys())[0]
+                        if message_header == 'NICK':
+                            nickname = message['data'][message_header]
+                            if nickname in [client[1] for client in self.clients]:
+                                self.send_object_message(client_socket, {'NICK_IN_USE': ''})
+                            else:
+                                self.send_object_message(client_socket, {'OK': ''})
+                                self.clients.append((client_socket, nickname))
+                                print(f'{nickname} joined')
+
+                                # Broadcast lobby players state
+                                self.broadcast({'LOBBY': [client[1] for client in self.clients]})
+
+                                thread = threading.Thread(target=self.handle, args=[client_socket, nickname])
+                                thread.start()
                         else:
-                            self.send_object_message(client_socket, {'OK': ''})
-                            self.clients.append((client_socket, nickname))
-                            print(f'{nickname} joined')
-
-                            # Broadcast lobby players state
-                            self.broadcast({'LOBBY': [client[1] for client in self.clients]})
-
-                            thread = threading.Thread(target=self.handle, args=[client_socket, nickname])
-                            thread.start()
-                    else:
-                        raise Exception('First message from client should have a nickname!')
+                            raise Exception('First message from client should have a nickname!')
             except Exception as e:
                 if nickname is not None:  # Exception occurred after appending socket and nickname to self.clients
                     self.clients.remove((client_socket, nickname))
